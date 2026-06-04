@@ -106,6 +106,86 @@
       color: #888;
     }
 
+    /* 地域選択ドロップダウンのラベルスタイル */
+    .region-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 6px;
+    }
+
+    /* 地域選択セレクトボックスのスタイル */
+    #region-select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid #cdd4db;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: #333;
+      background: #fff;
+      cursor: pointer;
+      /* ブラウザデフォルトの矢印を非表示にしてカスタム矢印SVGを使用 */
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 36px;
+      transition: border-color 0.2s;
+      margin-bottom: 12px;
+    }
+
+    /* 地域選択セレクトボックスフォーカス時の強調 */
+    #region-select:focus {
+      outline: none;
+      border-color: #3a7bd5;
+      box-shadow: 0 0 0 3px rgba(58, 123, 213, 0.15);
+    }
+
+    /* サンプルボタンエリア全体のコンテナスタイル */
+    .sample-buttons-area {
+      margin-bottom: 12px;
+    }
+
+    /* 「よく使う単語」ラベルのスタイル */
+    .sample-buttons-label {
+      font-size: 0.82rem;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    /* サンプルボタンを横並びにするフレックスコンテナ（画面幅が狭い場合は折り返す） */
+    .sample-buttons-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* 個々のサンプルボタンのスタイル（ピル型の丸みあるデザイン） */
+    .sample-btn {
+      padding: 6px 14px;
+      background: #e8f0fb;
+      color: #1a3c5e;
+      border: 1px solid #b8d0f0;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    /* サンプルボタンホバー時：背景色を濃くして選択感を演出 */
+    .sample-btn:hover {
+      background: #c8dcf5;
+      border-color: #3a7bd5;
+    }
+
+    /* サンプルボタン押下時：さらに濃くして押した感を演出 */
+    .sample-btn:active {
+      background: #a8c4eb;
+    }
+
     /* 方言入力テキストエリアのスタイル */
     #dialect-input {
       width: 100%;
@@ -311,6 +391,33 @@
     <!-- 方言入力カード -->
     <div class="card">
       <h2>方言・単語を入力</h2>
+
+      <!-- 地域選択ドロップダウンのラベル -->
+      <label class="region-label" for="region-select">地域を選択</label>
+      <!-- 地域選択セレクトボックス：選択した地域がClaudeへのプロンプトに含まれる -->
+      <select id="region-select" onchange="updateSampleButtons()">
+        <!-- 全国（デフォルト）：地域を限定しない場合 -->
+        <option value="">全国（デフォルト）</option>
+        <!-- 伊予弁（愛媛県）：先頭に配置 -->
+        <option value="伊予弁（愛媛県）">伊予弁（愛媛県）</option>
+        <!-- 関西弁 -->
+        <option value="関西弁">関西弁</option>
+        <!-- 博多弁 -->
+        <option value="博多弁">博多弁</option>
+        <!-- 津軽弁 -->
+        <option value="津軽弁">津軽弁</option>
+        <!-- 沖縄弁 -->
+        <option value="沖縄弁">沖縄弁</option>
+      </select>
+
+      <!-- よく使うサンプルボタンエリア：選択地域に応じてボタンが切り替わる -->
+      <div class="sample-buttons-area">
+        <!-- サンプルボタンエリアの説明ラベル -->
+        <div class="sample-buttons-label">よく使う単語（クリックで入力欄に自動入力）：</div>
+        <!-- サンプルボタン群：updateSampleButtons() によって動的に生成される -->
+        <div class="sample-buttons-row" id="sample-buttons-row"></div>
+      </div>
+
       <!-- 調べたい方言や単語を入力するテキストエリア -->
       <textarea
         id="dialect-input"
@@ -368,32 +475,86 @@
   </footer>
 
   <script>
+    // 地域ごとのサンプル単語を定義するオブジェクト（キー：地域の値、値：単語の配列）
+    const SAMPLE_WORDS = {
+      // 全国（デフォルト）のサンプル単語
+      '': ['なんくるないさ', 'じゃけん', 'したらば', 'ばってん', 'でんがな'],
+      // 伊予弁（愛媛県）のサンプル単語
+      '伊予弁（愛媛県）': ['ほいじゃ', 'いかん', 'おえん', 'はまる', 'ちごう'],
+    };
+
+    // ページ読み込み完了時にサンプルボタンを初期生成する
+    window.addEventListener('DOMContentLoaded', function() {
+      // 初期状態（全国）のサンプルボタンを表示する
+      updateSampleButtons();
+    });
+
+    // 地域選択が変わったときにサンプルボタンを更新する関数
+    function updateSampleButtons() {
+      // 現在選択中の地域値（selectのvalue）を取得する
+      const regionValue = document.getElementById('region-select').value;
+      // サンプルボタンを配置するコンテナ要素を取得する
+      const row = document.getElementById('sample-buttons-row');
+      // 既存のボタンをすべて削除してリセットする
+      row.innerHTML = '';
+
+      // 選択地域専用の単語リストがあればそれを使い、なければ全国の単語を使う
+      const words = SAMPLE_WORDS[regionValue] || SAMPLE_WORDS[''];
+
+      // 各サンプル単語についてピル型のボタンを生成してコンテナに追加する
+      words.forEach(function(word) {
+        // ボタン要素を作成する
+        const btn = document.createElement('button');
+        // サンプルボタン共通のCSSクラスを適用する
+        btn.className = 'sample-btn';
+        // ボタンのラベルに単語テキストを設定する
+        btn.textContent = word;
+        // クリック時：入力欄にサンプル単語を自動入力してフォーカスを移す
+        btn.addEventListener('click', function() {
+          // 入力欄にサンプル単語をセットする
+          document.getElementById('dialect-input').value = word;
+          // 入力欄にフォーカスを移動してそのまま編集できるようにする
+          document.getElementById('dialect-input').focus();
+        });
+        // 生成したボタンを行コンテナに追加する
+        row.appendChild(btn);
+      });
+    }
+
     // 「調べる」ボタンが押されたときのメイン処理関数
     async function searchDialect() {
-      // 入力値とAPIキーを取得する
+      // 入力された方言・単語を取得してトリムする
       const dialect = document.getElementById('dialect-input').value.trim();
-      const apiKey  = document.getElementById('api-key').value.trim();
+      // 選択中の地域値を取得する（未選択時は空文字）
+      const regionValue = document.getElementById('region-select').value;
+      // 入力されたAPIキーを取得してトリムする
+      const apiKey = document.getElementById('api-key').value.trim();
 
-      // 入力チェック：方言が未入力の場合はアラートを表示して処理を中断
+      // 入力チェック：方言が未入力の場合はエラーを表示して処理を中断する
       if (!dialect) {
         showError('方言または単語を入力してください。');
         return;
       }
 
-      // 入力チェック：APIキーが未入力の場合はアラートを表示して処理を中断
+      // 入力チェック：APIキーが未入力の場合はエラーを表示して処理を中断する
       if (!apiKey) {
         showError('APIキーを入力してください。');
         return;
       }
 
-      // UIの状態をリセット・ローディング開始
+      // UIの状態をリセットしてローディング表示を開始する
       hideError();
       showLoading(true);
       setButtonState(false);
       document.getElementById('result-area').style.display = 'none';
 
-      // Claude APIに送るプロンプトを構築する
-      const prompt = `あなたは日本の方言の専門家です。以下の方言または単語について、アナウンサーが学習するために必要な情報を教えてください。
+      // 地域が選択されている場合はClaudeへのプロンプトに地域ヒントを追加する文字列を作る
+      const regionHint = regionValue
+        ? `\nこの単語・表現は「${regionValue}」に関連している可能性があります。その地域の方言として優先的に解釈してください。`
+        : '';
+
+      // Claudeに送るプロンプトを組み立てる（地域ヒントを埋め込む）
+      const prompt = `あなたは日本の方言の専門家です。以下の方言または単語について、アナウンサーが学習するために必要な情報を教えてください。${regionHint}
 
 方言・単語：「${dialect}」
 
@@ -422,7 +583,7 @@
         const response = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
-            // 認証ヘッダーにAPIキーを設定
+            // 認証ヘッダーにAPIキーを設定する
             'x-api-key': apiKey,
             // Anthropic APIバージョンの指定
             'anthropic-version': '2023-06-01',
@@ -436,7 +597,7 @@
             model: 'claude-sonnet-4-6',
             // レスポンスの最大トークン数
             max_tokens: 1024,
-            // ユーザーからのメッセージ
+            // ユーザーからのメッセージ（構築したプロンプトを渡す）
             messages: [
               { role: 'user', content: prompt }
             ]
@@ -447,13 +608,13 @@
         if (!response.ok) {
           // エラーの詳細をレスポンスから取得する
           const errData = await response.json().catch(() => ({}));
-          // エラーメッセージを構築して表示
+          // エラーメッセージを構築して例外を投げる
           throw new Error(
             errData.error?.message || `APIエラー: ${response.status} ${response.statusText}`
           );
         }
 
-        // 正常なレスポンスのJSON解析
+        // 正常なレスポンスをJSONとして解析する
         const data = await response.json();
 
         // APIレスポンスからテキスト部分を取得する
@@ -462,7 +623,7 @@
         // レスポンスのJSONテキストをパースする
         let result;
         try {
-          // コードブロック記号（```json ... ```）を除去してからパース
+          // コードブロック記号（```json ... ```）を除去してからパースする
           const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
           result = JSON.parse(cleaned);
         } catch {
@@ -470,14 +631,14 @@
           throw new Error('APIのレスポンスを解析できませんでした。もう一度お試しください。');
         }
 
-        // 結果をUIに反映する
+        // パースした結果をUIに反映する
         displayResult(result, dialect);
 
       } catch (err) {
         // 通信エラーやパースエラーをユーザーに表示する
         showError('エラーが発生しました：' + err.message);
       } finally {
-        // 処理完了後はローディングを非表示にしてボタンを再有効化
+        // 処理完了後はローディングを非表示にしてボタンを再有効化する
         showLoading(false);
         setButtonState(true);
       }
@@ -497,7 +658,8 @@
 
       // 例文セクションを構築して表示する
       const examplesEl = document.getElementById('result-examples');
-      examplesEl.innerHTML = ''; // 以前の例文をクリアする
+      // 以前の例文をクリアして再描画する
+      examplesEl.innerHTML = '';
 
       // 例文配列が存在する場合はそれぞれのブロックを生成する
       if (Array.isArray(result.examples) && result.examples.length > 0) {
@@ -505,31 +667,31 @@
           // 例文ブロックのHTML要素を作成する
           const block = document.createElement('div');
           block.className = 'example-block';
-          // 番号付きで方言例文と標準語訳を表示する
+          // 方言例文と標準語訳をHTMLエスケープしてから挿入する
           block.innerHTML = `
             <p class="dialect-line">【方言】${escapeHtml(ex.dialect || '')}</p>
             <p class="standard-line">【標準語】${escapeHtml(ex.standard || '')}</p>
           `;
-          // 2件目以降は上マージンを追加
+          // 2件目以降は上マージンを追加して間隔を空ける
           if (idx > 0) block.style.marginTop = '10px';
           examplesEl.appendChild(block);
         });
       } else {
-        // 例文がない場合のメッセージ
+        // 例文がない場合はメッセージを表示する
         examplesEl.textContent = '例文がありませんでした。';
       }
 
       // 結果エリアをフェードインで表示する
       const resultArea = document.getElementById('result-area');
-      resultArea.style.display  = 'block';
-      resultArea.style.opacity  = '0';
+      resultArea.style.display = 'block';
+      resultArea.style.opacity = '0';
       resultArea.style.transition = 'opacity 0.3s ease';
-      // 次フレームでopacityを1にしてアニメーションを開始
+      // 次フレームでopacityを1にしてフェードインアニメーションを開始する
       requestAnimationFrame(() => {
         resultArea.style.opacity = '1';
       });
 
-      // 結果エリアまでスムーズスクロール
+      // 結果エリアまでスムーズスクロールする
       resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -541,13 +703,16 @@
     // ボタンの有効・無効状態を切り替える関数
     function setButtonState(enabled) {
       const btn = document.getElementById('search-btn');
-      btn.disabled  = !enabled;
+      // disabledプロパティで操作を制御する
+      btn.disabled = !enabled;
+      // ボタンのラベルを状態に応じて変更する
       btn.textContent = enabled ? '調べる' : '調べています...';
     }
 
     // エラーメッセージを表示する関数
     function showError(message) {
       const el = document.getElementById('error-msg');
+      // 警告アイコン付きでエラーメッセージを設定する
       el.textContent = '⚠️ ' + message;
       el.style.display = 'block';
     }
@@ -559,15 +724,15 @@
 
     // XSS対策のためHTMLエスケープを行うユーティリティ関数
     function escapeHtml(str) {
-      // テキストノードとして設定することでブラウザにエスケープさせる
+      // テキストノードとして設定することでブラウザに安全なエスケープをさせる
       const div = document.createElement('div');
       div.appendChild(document.createTextNode(str));
       return div.innerHTML;
     }
 
-    // Enterキーでも検索できるようにキーボードイベントを設定する
+    // Ctrl+Enter / Cmd+Enter キーでも検索できるようにキーボードイベントを設定する
     document.getElementById('dialect-input').addEventListener('keydown', function(e) {
-      // Ctrl+Enter または Cmd+Enter で調べるボタンを発動
+      // Ctrl+Enter または Cmd+Enter で調べるボタンと同等の処理を発動する
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         searchDialect();
       }
