@@ -341,6 +341,36 @@
       color: #555;
     }
 
+    /* アナウンサーへのポイントブロックのスタイル（黄色系で例文ブロックと区別する） */
+    .announcer-block {
+      background: #fffbec;
+      border-left: 3px solid #e8a020;
+      border-radius: 0 8px 8px 0;
+      padding: 12px 16px;
+      margin-top: 4px;
+    }
+
+    /* アナウンサーブロック内の各項目見出しラベルのスタイル */
+    .announcer-block .point-label {
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #a06010;
+      margin-top: 10px;
+      margin-bottom: 2px;
+    }
+
+    /* 最初の項目ラベルは上マージン不要（ブロック先頭と間隔が重複するため） */
+    .announcer-block .point-label:first-child {
+      margin-top: 0;
+    }
+
+    /* アナウンサーブロック内の本文テキストのスタイル */
+    .announcer-block .point-value {
+      font-size: 0.97rem;
+      line-height: 1.7;
+      color: #444;
+    }
+
     /* エラーメッセージのスタイル */
     #error-msg {
       display: none;
@@ -447,6 +477,13 @@
         <div class="value" id="result-region"></div>
       </div>
 
+      <!-- 読み方（ふりがな）セクション：使われる地域の直後に配置 -->
+      <div class="result-section">
+        <div class="label">読み方（ふりがな）</div>
+        <!-- ひらがなで読み方を表示する -->
+        <div class="value" id="result-reading"></div>
+      </div>
+
       <!-- 標準語訳セクション -->
       <div class="result-section">
         <div class="label">標準語での意味</div>
@@ -463,6 +500,13 @@
       <div class="result-section">
         <div class="label">例文</div>
         <div id="result-examples"></div>
+      </div>
+
+      <!-- アナウンサーへのポイントセクション：例文の後に配置 -->
+      <div class="result-section">
+        <div class="label">アナウンサーへのポイント</div>
+        <!-- 放送使用可否・取材対応・発音注意の3項目をまとめて表示するコンテナ -->
+        <div id="result-announcer-points"></div>
       </div>
 
     </div>
@@ -562,6 +606,7 @@
 
 {
   "region": "使われる主な地域（都道府県名や地域名）",
+  "reading": "単語・表現のひらがなでの読み方（ふりがな）",
   "meaning": "標準語での意味（わかりやすく説明）",
   "nuance": "使われる場面やニュアンス（感情、丁寧さ、使用シーンなど）",
   "examples": [
@@ -573,7 +618,12 @@
       "dialect": "方言を使った別の例文",
       "standard": "標準語訳"
     }
-  ]
+  ],
+  "announcer_points": {
+    "broadcast_use": "放送での使用可否（使える場面・使えない場面・使う際の注意事項を含めて説明）",
+    "interview_response": "取材先でこの言葉を聞いた時の対応（意味の確認方法・視聴者への伝え方など）",
+    "pronunciation": "発音の注意点（アクセント・イントネーション・標準語との違いなど）"
+  }
 }
 
 もし有名な方言でない、または意味が不明な場合は、region に「不明」、meaning に「この言葉は一般的な方言として確認できませんでした」と入力してください。`;
@@ -595,8 +645,8 @@
           body: JSON.stringify({
             // 使用するClaudeモデルの指定
             model: 'claude-sonnet-4-6',
-            // レスポンスの最大トークン数
-            max_tokens: 1024,
+            // レスポンスの最大トークン数（アナウンサーポイント追加分を考慮して増量）
+            max_tokens: 1800,
             // ユーザーからのメッセージ（構築したプロンプトを渡す）
             messages: [
               { role: 'user', content: prompt }
@@ -650,6 +700,9 @@
       const regionEl = document.getElementById('result-region');
       regionEl.innerHTML = `<span class="region-badge">📍 ${escapeHtml(result.region || '不明')}</span>`;
 
+      // 読み方（ふりがな）を表示する
+      document.getElementById('result-reading').textContent = result.reading || '情報なし';
+
       // 標準語の意味を表示する
       document.getElementById('result-meaning').textContent = result.meaning || '情報なし';
 
@@ -679,6 +732,32 @@
       } else {
         // 例文がない場合はメッセージを表示する
         examplesEl.textContent = '例文がありませんでした。';
+      }
+
+      // アナウンサーへのポイントセクションを構築して表示する
+      const announcerEl = document.getElementById('result-announcer-points');
+      // 以前の内容をクリアして再描画する
+      announcerEl.innerHTML = '';
+      // announcer_pointsオブジェクトが存在する場合は各項目をブロックとして表示する
+      const ap = result.announcer_points;
+      if (ap) {
+        // アナウンサーポイント全体を囲むブロック要素を作成する
+        const apBlock = document.createElement('div');
+        apBlock.className = 'announcer-block';
+        // 3項目（放送使用可否・取材対応・発音注意）をHTMLエスケープして挿入する
+        apBlock.innerHTML = `
+          <div class="point-label">放送での使用可否</div>
+          <div class="point-value">${escapeHtml(ap.broadcast_use || '情報なし')}</div>
+          <div class="point-label">取材先で聞いた時の対応</div>
+          <div class="point-value">${escapeHtml(ap.interview_response || '情報なし')}</div>
+          <div class="point-label">発音の注意点</div>
+          <div class="point-value">${escapeHtml(ap.pronunciation || '情報なし')}</div>
+        `;
+        // 作成したブロックをコンテナに追加する
+        announcerEl.appendChild(apBlock);
+      } else {
+        // アナウンサーポイントが返されなかった場合はメッセージを表示する
+        announcerEl.textContent = '情報がありませんでした。';
       }
 
       // 結果エリアをフェードインで表示する
