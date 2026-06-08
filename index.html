@@ -645,8 +645,8 @@
           body: JSON.stringify({
             // 使用するClaudeモデルの指定
             model: 'claude-sonnet-4-6',
-            // レスポンスの最大トークン数（アナウンサーポイント追加分を考慮して増量）
-            max_tokens: 1800,
+            // レスポンスの最大トークン数（フィールド増加分＋余裕を考慮して2048に設定）
+            max_tokens: 2048,
             // ユーザーからのメッセージ（構築したプロンプトを渡す）
             messages: [
               { role: 'user', content: prompt }
@@ -673,8 +673,16 @@
         // レスポンスのJSONテキストをパースする
         let result;
         try {
-          // コードブロック記号（```json ... ```）を除去してからパースする
-          const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          // コードブロック記号（```json ... ```）を除去する
+          let cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          // JSONオブジェクトが波括弧で始まらない場合（前後に説明文が混入している場合）は
+          // テキスト中から最初の { ～ 最後の } の範囲を正規表現で抽出してパースを試みる
+          if (!cleaned.startsWith('{')) {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            // マッチした部分があればそれをJSONとして使用し、なければ元のテキストをそのまま使う
+            cleaned = match ? match[0] : cleaned;
+          }
+          // 抽出したテキストをJSONオブジェクトに変換する
           result = JSON.parse(cleaned);
         } catch {
           // JSONパースに失敗した場合はエラーを投げる
