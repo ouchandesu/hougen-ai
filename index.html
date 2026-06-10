@@ -9,395 +9,518 @@
   <!-- ページタイトル -->
   <title>方言ナビ - アナウンサー向け方言学習ツール</title>
   <style>
+    /* ── CSS変数：全色・余白を一元管理 ─────────────────── */
+    :root {
+      --black:    #0a0a0a;  /* メインの黒 */
+      --white:    #ffffff;  /* 純白 */
+      --gray-50:  #f7f7f7;  /* カード外背景・入力フィールド背景 */
+      --gray-100: #efefef;  /* 区切り線・薄いボーダー */
+      --gray-200: #e0e0e0;  /* ボーダー標準 */
+      --gray-400: #aaaaaa;  /* ミュートテキスト・ラベル */
+      --gray-600: #666666;  /* サブテキスト */
+      --gray-800: #2a2a2a;  /* ホバー時の黒 */
+    }
+
+    /* ── リセット ────────────────────────────────────── */
     /* ページ全体のリセットとフォント設定 */
-    * {
+    *, *::before, *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
     }
 
-    /* ボディのベーススタイル */
+    /* ── ボディ ──────────────────────────────────────── */
+    /* ベーススタイル：システムフォントで可読性重視 */
     body {
-      font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
-      background-color: #f4f6f8;
-      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                   'Helvetica Neue', Arial,
+                   'Hiragino Kaku Gothic ProN', 'Hiragino Sans',
+                   Meiryo, sans-serif;
+      background: var(--gray-50);
+      color: var(--black);
       min-height: 100vh;
-      padding: 24px 16px;
+      -webkit-font-smoothing: antialiased; /* macOSでフォントをなめらかに */
     }
 
-    /* ヘッダーエリアのスタイル */
+    /* ── ヘッダー ─────────────────────────────────────── */
+    /* 黒背景の全幅バー：放送スタジオ感を演出 */
     header {
+      background: var(--black);
+      color: var(--white);
       text-align: center;
-      margin-bottom: 28px;
+      padding: 44px 16px 40px;
     }
 
-    /* メインタイトルのスタイル */
+    /* タグライン：小文字大文字・グレーで落ち着いたアクセント */
+    header .tagline {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 14px;
+    }
+
+    /* メインタイトル：大きく太く */
     header h1 {
-      font-size: 2rem;
-      color: #1a3c5e;
-      letter-spacing: 0.05em;
+      font-size: 2.6rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      line-height: 1;
     }
 
-    /* サブタイトルのスタイル */
-    header p {
-      margin-top: 6px;
-      font-size: 0.9rem;
-      color: #666;
+    /* サブタイトル：グレーで補足説明 */
+    header .subtitle {
+      margin-top: 10px;
+      font-size: 0.82rem;
+      color: var(--gray-400);
+      letter-spacing: 0.06em;
     }
 
+    /* ── コンテナ ─────────────────────────────────────── */
     /* コンテンツの最大幅とセンタリング */
     .container {
-      max-width: 760px;
+      max-width: 700px;
       margin: 0 auto;
+      padding: 28px 16px 56px;
     }
 
-    /* カードコンポーネントの共通スタイル */
+    /* ── カード ───────────────────────────────────────── */
+    /* 各セクションを囲む白いカード */
     .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 24px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 4px;
+      padding: 24px 28px;
+      margin-bottom: 14px;
     }
 
-    /* カード内の見出しスタイル */
-    .card h2 {
-      font-size: 1rem;
-      color: #1a3c5e;
-      margin-bottom: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    /* カード内の見出し：小文字・グレー・下線でエリアを分割 */
+    .card > h2 {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--gray-100);
     }
 
-    /* 見出し左のアクセントバー */
-    .card h2::before {
-      content: '';
-      display: inline-block;
-      width: 4px;
-      height: 1em;
-      background: #3a7bd5;
-      border-radius: 2px;
+    /* ── フィールドラベル ────────────────────────────── */
+    /* 入力項目の上に付く小さなラベル */
+    .field-label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 7px;
     }
 
+    /* ── APIキー入力 ─────────────────────────────────── */
     /* APIキー入力フィールドのスタイル */
     .api-key-input {
       width: 100%;
-      padding: 10px 14px;
-      border: 1px solid #cdd4db;
-      border-radius: 8px;
-      font-size: 0.95rem;
-      font-family: monospace;
-      color: #333;
-      transition: border-color 0.2s;
+      padding: 11px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 0.88rem;
+      /* モノスペースフォントでAPIキーを見やすく */
+      font-family: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+      color: var(--black);
+      background: var(--gray-50);
+      transition: border-color 0.15s, background 0.15s;
     }
 
-    /* APIキー入力フォーカス時の強調 */
+    /* APIキー入力フォーカス時：黒ボーダーで強調 */
     .api-key-input:focus {
       outline: none;
-      border-color: #3a7bd5;
-      box-shadow: 0 0 0 3px rgba(58, 123, 213, 0.15);
+      border-color: var(--black);
+      background: var(--white);
     }
 
     /* APIキーの注意書きテキスト */
     .api-key-note {
       margin-top: 8px;
-      font-size: 0.78rem;
-      color: #888;
+      font-size: 0.73rem;
+      color: var(--gray-400);
+      line-height: 1.6;
     }
 
-    /* 地域選択ドロップダウンのラベルスタイル */
-    .region-label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: bold;
-      color: #555;
-      margin-bottom: 6px;
-    }
-
+    /* ── 地域セレクト ────────────────────────────────── */
     /* 地域選択セレクトボックスのスタイル */
     #region-select {
       width: 100%;
-      padding: 10px 14px;
-      border: 1px solid #cdd4db;
-      border-radius: 8px;
+      padding: 11px 40px 11px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
       font-size: 0.95rem;
       font-family: inherit;
-      color: #333;
-      background: #fff;
+      color: var(--black);
+      background-color: var(--gray-50);
       cursor: pointer;
-      /* ブラウザデフォルトの矢印を非表示にしてカスタム矢印SVGを使用 */
+      /* ブラウザデフォルト矢印を非表示にしてカスタムSVGを使用 */
       appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%230a0a0a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 14px center;
-      padding-right: 36px;
-      transition: border-color 0.2s;
-      margin-bottom: 12px;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 20px;
     }
 
-    /* 地域選択セレクトボックスフォーカス時の強調 */
+    /* 地域選択フォーカス時：黒ボーダーで強調 */
     #region-select:focus {
       outline: none;
-      border-color: #3a7bd5;
-      box-shadow: 0 0 0 3px rgba(58, 123, 213, 0.15);
+      border-color: var(--black);
+      background-color: var(--white);
     }
 
-    /* サンプルボタンエリア全体のコンテナスタイル */
+    /* ── サンプルボタン ──────────────────────────────── */
+    /* サンプルボタンエリア全体のコンテナ */
     .sample-buttons-area {
-      margin-bottom: 12px;
+      margin-bottom: 20px;
     }
 
-    /* 「よく使う単語」ラベルのスタイル */
+    /* 「サンプル単語」ラベル */
     .sample-buttons-label {
-      font-size: 0.82rem;
-      color: #888;
-      margin-bottom: 8px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 10px;
     }
 
-    /* サンプルボタンを横並びにするフレックスコンテナ（画面幅が狭い場合は折り返す） */
+    /* サンプルボタンを横並びにするフレックスコンテナ（画面幅が狭い場合折り返す） */
     .sample-buttons-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
     }
 
-    /* 個々のサンプルボタンのスタイル（ピル型の丸みあるデザイン） */
+    /* 個々のサンプルボタン：アウトラインスタイル */
     .sample-btn {
-      padding: 6px 14px;
-      background: #e8f0fb;
-      color: #1a3c5e;
-      border: 1px solid #b8d0f0;
-      border-radius: 20px;
-      font-size: 0.9rem;
+      padding: 6px 16px;
+      background: var(--white);
+      color: var(--black);
+      border: 1px solid var(--gray-800);
+      border-radius: 2px;
+      font-size: 0.88rem;
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.15s, border-color 0.15s;
+      letter-spacing: 0.02em;
+      /* 背景と文字色を反転するトランジション */
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
     }
 
-    /* サンプルボタンホバー時：背景色を濃くして選択感を演出 */
+    /* ホバー時：黒反転で選択感を演出 */
     .sample-btn:hover {
-      background: #c8dcf5;
-      border-color: #3a7bd5;
+      background: var(--black);
+      color: var(--white);
     }
 
-    /* サンプルボタン押下時：さらに濃くして押した感を演出 */
+    /* 押下時：グレーで押した感を演出 */
     .sample-btn:active {
-      background: #a8c4eb;
+      background: var(--gray-800);
+      color: var(--white);
     }
 
+    /* ── テキストエリア ───────────────────────────────── */
     /* 方言入力テキストエリアのスタイル */
     #dialect-input {
       width: 100%;
-      height: 100px;
+      height: 110px;
       padding: 12px 14px;
-      border: 1px solid #cdd4db;
-      border-radius: 8px;
-      font-size: 1.1rem;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 1.05rem;
       resize: vertical;
       font-family: inherit;
-      line-height: 1.6;
-      transition: border-color 0.2s;
+      line-height: 1.7;
+      background: var(--gray-50);
+      color: var(--black);
+      transition: border-color 0.15s, background 0.15s;
     }
 
-    /* テキストエリアフォーカス時の強調 */
+    /* テキストエリアフォーカス時：黒ボーダーで強調 */
     #dialect-input:focus {
       outline: none;
-      border-color: #3a7bd5;
-      box-shadow: 0 0 0 3px rgba(58, 123, 213, 0.15);
+      border-color: var(--black);
+      background: var(--white);
     }
 
-    /* 「調べる」ボタンのスタイル */
+    /* ── 調べるボタン ────────────────────────────────── */
+    /* 黒背景・白テキスト・大文字で視認性を確保 */
     #search-btn {
       display: block;
       width: 100%;
       margin-top: 14px;
       padding: 14px;
-      background: #3a7bd5;
-      color: #fff;
-      font-size: 1.05rem;
-      font-weight: bold;
+      background: var(--black);
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
       border: none;
-      border-radius: 8px;
+      border-radius: 3px;
       cursor: pointer;
-      letter-spacing: 0.08em;
-      transition: background 0.2s, transform 0.1s;
+      transition: background 0.15s;
     }
 
-    /* ボタンホバー時の色変更 */
+    /* ホバー時：やや明るいグレーに */
     #search-btn:hover {
-      background: #2c63b5;
+      background: var(--gray-800);
     }
 
-    /* ボタン押下時の沈み込み効果 */
-    #search-btn:active {
-      transform: scale(0.98);
-    }
-
-    /* ボタン無効状態のスタイル */
+    /* 無効状態：グレーでクリック不可を表現 */
     #search-btn:disabled {
-      background: #a0b4cc;
+      background: var(--gray-400);
       cursor: not-allowed;
-      transform: none;
     }
 
-    /* ローディングスピナーのアニメーション定義 */
+    /* ── ローディング ────────────────────────────────── */
+    /* スピナーの回転アニメーション定義 */
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
 
-    /* ローディング表示エリアのスタイル */
+    /* ローディング表示エリア（API通信中に表示） */
     #loading {
       display: none;
       text-align: center;
-      padding: 32px;
-      color: #666;
-      font-size: 0.95rem;
+      padding: 44px;
+      color: var(--gray-600);
     }
 
-    /* ローディングアイコンのスタイルとアニメーション */
+    /* 黒のスピナーアイコン */
     #loading .spinner {
       display: inline-block;
-      width: 28px;
-      height: 28px;
-      border: 3px solid #cdd4db;
-      border-top-color: #3a7bd5;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--gray-200);
+      border-top-color: var(--black);
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.65s linear infinite;
       margin-bottom: 12px;
     }
 
+    /* ローディングテキスト */
+    #loading p {
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+    }
+
+    /* ── 結果エリア ───────────────────────────────────── */
     /* 結果表示エリアの初期非表示 */
     #result-area {
       display: none;
     }
 
-    /* 各結果セクションの区切りスタイル */
-    .result-section {
-      border-bottom: 1px solid #f0f0f0;
-      padding-bottom: 16px;
-      margin-bottom: 16px;
+    /* ── 地域・読み方グリッド ────────────────────────── */
+    /* 地域と読み方を横並びにする2カラムグリッドのラッパー */
+    .result-grid-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-bottom: 1px solid var(--gray-100);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
     }
 
-    /* 最後のセクションは区切り線を非表示 */
+    /* グリッド内のセクションは独自の下線を持たない */
+    .result-grid-wrapper .result-section {
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+
+    /* グリッド左カラム（地域）：右に区切り線を追加 */
+    .result-grid-wrapper .result-section:first-child {
+      border-right: 1px solid var(--gray-200);
+      padding-right: 28px;
+    }
+
+    /* グリッド右カラム（読み方）：区切り線から離すためパディング追加 */
+    .result-grid-wrapper .result-section:last-child {
+      padding-left: 28px;
+    }
+
+    /* モバイル（540px以下）：グリッドを縦積みに変更 */
+    @media (max-width: 540px) {
+      /* 1カラムに切り替える */
+      .result-grid-wrapper {
+        grid-template-columns: 1fr;
+      }
+      /* 区切り線を右から下に変更 */
+      .result-grid-wrapper .result-section:first-child {
+        border-right: none;
+        padding-right: 0;
+        border-bottom: 1px solid var(--gray-100);
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+      }
+      /* 左パディングをリセット */
+      .result-grid-wrapper .result-section:last-child {
+        padding-left: 0;
+      }
+    }
+
+    /* ── 結果セクション共通 ──────────────────────────── */
+    /* 各結果セクションの区切りと間隔 */
+    .result-section {
+      border-bottom: 1px solid var(--gray-100);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+    }
+
+    /* 最後のセクションは区切り線・マージン不要 */
     .result-section:last-child {
       border-bottom: none;
       padding-bottom: 0;
       margin-bottom: 0;
     }
 
-    /* 結果セクションのラベルスタイル */
+    /* セクションラベル：極小・大文字・グレーで上品に */
     .result-section .label {
-      font-size: 0.78rem;
-      font-weight: bold;
-      color: #3a7bd5;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 6px;
+      color: var(--gray-400);
+      margin-bottom: 9px;
     }
 
-    /* 結果の本文テキストスタイル */
+    /* セクションの本文テキスト */
     .result-section .value {
-      font-size: 1rem;
-      line-height: 1.8;
-      color: #333;
+      font-size: 1.02rem;
+      line-height: 1.85;
+      color: var(--black);
     }
 
-    /* 地域バッジのスタイル */
+    /* ── 地域バッジ ───────────────────────────────────── */
+    /* 黒い角丸なしのピルバッジ */
     .region-badge {
       display: inline-block;
-      background: #e8f0fb;
-      color: #1a3c5e;
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 0.95rem;
-      font-weight: bold;
+      background: var(--black);
+      color: var(--white);
+      border-radius: 2px;
+      padding: 4px 12px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
     }
 
-    /* 例文ブロックのスタイル */
+    /* ── 読み方テキスト ───────────────────────────────── */
+    /* 読み方は大きめのフォントで視認性を確保 */
+    .reading-text {
+      font-size: 1.5rem;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      color: var(--black);
+      line-height: 1.4;
+    }
+
+    /* ── 例文ブロック ────────────────────────────────── */
+    /* 例文の黒左ボーダー付きブロック */
     .example-block {
-      background: #f8f9fb;
-      border-left: 3px solid #3a7bd5;
-      border-radius: 0 8px 8px 0;
-      padding: 12px 16px;
-      margin-top: 8px;
+      background: var(--gray-50);
+      border-left: 2px solid var(--black);
+      padding: 14px 18px;
+      margin-top: 10px;
     }
 
-    /* 例文内の各行スタイル */
+    /* 例文内の各行 */
     .example-block p {
-      font-size: 0.98rem;
-      line-height: 1.7;
-      color: #444;
+      font-size: 0.97rem;
+      line-height: 1.8;
     }
 
-    /* 方言例文の強調スタイル */
+    /* 方言例文：太字・黒 */
     .example-block .dialect-line {
-      font-weight: bold;
-      color: #1a3c5e;
+      font-weight: 600;
+      color: var(--black);
     }
 
-    /* 標準語訳の色スタイル */
+    /* 標準語訳：グレーで区別 */
     .example-block .standard-line {
-      color: #555;
+      color: var(--gray-600);
+      margin-top: 2px;
     }
 
-    /* アナウンサーへのポイントブロックのスタイル（黄色系で例文ブロックと区別する） */
+    /* ── アナウンサーへのポイント ────────────────────── */
+    /* 黒背景で他セクションと明確に区別：プロ向け情報を強調 */
     .announcer-block {
-      background: #fffbec;
-      border-left: 3px solid #e8a020;
-      border-radius: 0 8px 8px 0;
-      padding: 12px 16px;
+      background: var(--black);
+      color: var(--white);
+      padding: 20px 22px;
+      border-radius: 3px;
       margin-top: 4px;
     }
 
-    /* アナウンサーブロック内の各項目見出しラベルのスタイル */
+    /* 各項目のラベル：グレーの小文字大文字 */
     .announcer-block .point-label {
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #a06010;
-      margin-top: 10px;
-      margin-bottom: 2px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-top: 16px;
+      margin-bottom: 5px;
     }
 
-    /* 最初の項目ラベルは上マージン不要（ブロック先頭と間隔が重複するため） */
+    /* 最初の項目ラベルは上マージン不要（ブロック上辺と重複するため） */
     .announcer-block .point-label:first-child {
       margin-top: 0;
     }
 
-    /* アナウンサーブロック内の本文テキストのスタイル */
+    /* 各項目の本文：明るいグレーで読みやすく */
     .announcer-block .point-value {
       font-size: 0.97rem;
-      line-height: 1.7;
-      color: #444;
+      line-height: 1.8;
+      color: #e4e4e4;
     }
 
-    /* エラーメッセージのスタイル */
+    /* ── エラーメッセージ ────────────────────────────── */
+    /* エラーメッセージのスタイル（赤系） */
     #error-msg {
       display: none;
-      background: #fff2f2;
-      border: 1px solid #f5c6cb;
-      border-radius: 8px;
-      padding: 14px 18px;
-      color: #c0392b;
-      font-size: 0.95rem;
-      margin-bottom: 20px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 3px;
+      padding: 13px 18px;
+      color: #b91c1c;
+      font-size: 0.88rem;
+      margin-bottom: 14px;
     }
 
-    /* フッターのスタイル */
+    /* ── フッター ─────────────────────────────────────── */
+    /* 黒背景でヘッダーと統一感を出す */
     footer {
+      background: var(--black);
+      color: var(--gray-400);
       text-align: center;
-      color: #aaa;
-      font-size: 0.78rem;
-      margin-top: 32px;
+      font-size: 0.68rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 22px 16px;
     }
   </style>
 </head>
 <body>
 
-  <!-- ページヘッダー -->
+  <!-- ページヘッダー：黒背景でブロードキャスト感を演出 -->
   <header>
+    <!-- タグライン：ターゲットユーザーを明示 -->
+    <div class="tagline">Announcer's Learning Tool</div>
+    <!-- メインタイトル -->
     <h1>方言ナビ</h1>
-    <p>アナウンサーのための日本方言学習ツール</p>
+    <!-- サブタイトル -->
+    <p class="subtitle">日本各地の方言をプロの視点で学ぶ</p>
   </header>
 
   <!-- メインコンテンツのコンテナ -->
@@ -405,17 +528,19 @@
 
     <!-- APIキー入力カード -->
     <div class="card">
-      <h2>APIキー設定</h2>
+      <h2>API設定</h2>
+      <!-- APIキーの入力ラベル -->
+      <label class="field-label" for="api-key">Anthropic API Key</label>
       <!-- Claude APIキーの入力欄（パスワード形式で非表示） -->
       <input
         type="password"
         id="api-key"
         class="api-key-input"
-        placeholder="sk-ant-api03-... を入力してください"
+        placeholder="sk-ant-api03-..."
         autocomplete="off"
       />
       <!-- APIキーの取得先案内 -->
-      <p class="api-key-note">※ APIキーは Anthropic Console (console.anthropic.com) で取得できます。このページ外に送信されることはありません。</p>
+      <p class="api-key-note">console.anthropic.com で取得できます。このページ外に送信されることはありません。</p>
     </div>
 
     <!-- 方言入力カード -->
@@ -423,7 +548,7 @@
       <h2>方言・単語を入力</h2>
 
       <!-- 地域選択ドロップダウンのラベル -->
-      <label class="region-label" for="region-select">地域を選択</label>
+      <label class="field-label" for="region-select">地域</label>
       <!-- 地域選択セレクトボックス：選択した地域がClaudeへのプロンプトに含まれる -->
       <select id="region-select" onchange="updateSampleButtons()">
         <!-- 全国（デフォルト）：地域を限定しない場合 -->
@@ -442,8 +567,8 @@
 
       <!-- よく使うサンプルボタンエリア：選択地域に応じてボタンが切り替わる -->
       <div class="sample-buttons-area">
-        <!-- サンプルボタンエリアの説明ラベル -->
-        <div class="sample-buttons-label">よく使う単語（クリックで入力欄に自動入力）：</div>
+        <!-- サンプルボタンエリアのラベル -->
+        <div class="sample-buttons-label">サンプル単語</div>
         <!-- サンプルボタン群：updateSampleButtons() によって動的に生成される -->
         <div class="sample-buttons-row" id="sample-buttons-row"></div>
       </div>
@@ -451,7 +576,7 @@
       <!-- 調べたい方言や単語を入力するテキストエリア -->
       <textarea
         id="dialect-input"
-        placeholder="例：ほやほや、いきなり（熊本）、がめつい、なんくるないさ...など方言・単語を入力してください"
+        placeholder="方言・単語を入力（例：ほやほや、なんくるないさ、ばってん…）"
       ></textarea>
       <!-- 調べるボタン：クリックでAPI呼び出しを実行 -->
       <button id="search-btn" onclick="searchDialect()">調べる</button>
@@ -463,25 +588,27 @@
     <!-- ローディング表示エリア（API通信中に表示） -->
     <div id="loading">
       <div class="spinner"></div>
-      <p>方言を分析中です...</p>
+      <p>分析中</p>
     </div>
 
     <!-- 結果表示エリア（API応答後に表示） -->
     <div id="result-area" class="card">
       <h2>調査結果</h2>
 
-      <!-- 地域情報セクション -->
-      <div class="result-section">
-        <div class="label">使われる地域</div>
-        <!-- 地域名をバッジ形式で表示 -->
-        <div class="value" id="result-region"></div>
-      </div>
-
-      <!-- 読み方（ふりがな）セクション：使われる地域の直後に配置 -->
-      <div class="result-section">
-        <div class="label">読み方（ふりがな）</div>
-        <!-- ひらがなで読み方を表示する -->
-        <div class="value" id="result-reading"></div>
+      <!-- 地域と読み方を横並びグリッドで表示するラッパー -->
+      <div class="result-grid-wrapper">
+        <!-- 地域情報セクション（左カラム） -->
+        <div class="result-section">
+          <div class="label">使われる地域</div>
+          <!-- 地域名をバッジ形式で表示 -->
+          <div class="value" id="result-region"></div>
+        </div>
+        <!-- 読み方（ふりがな）セクション（右カラム） -->
+        <div class="result-section">
+          <div class="label">読み方（ふりがな）</div>
+          <!-- ひらがなで読み方を大きく表示する -->
+          <div class="value" id="result-reading"></div>
+        </div>
       </div>
 
       <!-- 標準語訳セクション -->
@@ -505,7 +632,7 @@
       <!-- アナウンサーへのポイントセクション：例文の後に配置 -->
       <div class="result-section">
         <div class="label">アナウンサーへのポイント</div>
-        <!-- 放送使用可否・取材対応・発音注意の3項目をまとめて表示するコンテナ -->
+        <!-- 放送使用可否・取材対応・発音注意の3項目を黒ブロックで表示するコンテナ -->
         <div id="result-announcer-points"></div>
       </div>
 
@@ -513,9 +640,9 @@
 
   </div>
 
-  <!-- フッター -->
+  <!-- フッター：黒背景でヘッダーと統一 -->
   <footer>
-    <p>Powered by Claude API &nbsp;|&nbsp; 方言ナビ &copy; 2024</p>
+    <p>Powered by Claude API &nbsp;·&nbsp; 方言ナビ &copy; 2024</p>
   </footer>
 
   <script>
@@ -545,7 +672,7 @@
       // 選択地域専用の単語リストがあればそれを使い、なければ全国の単語を使う
       const words = SAMPLE_WORDS[regionValue] || SAMPLE_WORDS[''];
 
-      // 各サンプル単語についてピル型のボタンを生成してコンテナに追加する
+      // 各サンプル単語についてボタンを生成してコンテナに追加する
       words.forEach(function(word) {
         // ボタン要素を作成する
         const btn = document.createElement('button');
@@ -645,7 +772,7 @@
           body: JSON.stringify({
             // 使用するClaudeモデルの指定
             model: 'claude-sonnet-4-6',
-            // レスポンスの最大トークン数（フィールド増加分＋余裕を考慮して2048に設定）
+            // レスポンスの最大トークン数（フィールド増加分を考慮して2048に設定）
             max_tokens: 2048,
             // ユーザーからのメッセージ（構築したプロンプトを渡す）
             messages: [
@@ -675,8 +802,8 @@
         try {
           // コードブロック記号（```json ... ```）を除去する
           let cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-          // JSONオブジェクトが波括弧で始まらない場合（前後に説明文が混入している場合）は
-          // テキスト中から最初の { ～ 最後の } の範囲を正規表現で抽出してパースを試みる
+          // JSONが波括弧で始まらない場合（前後に説明文が混入した場合）は
+          // テキスト内から { ～ } の範囲を正規表現で抽出してパースを試みる
           if (!cleaned.startsWith('{')) {
             const match = cleaned.match(/\{[\s\S]*\}/);
             // マッチした部分があればそれをJSONとして使用し、なければ元のテキストをそのまま使う
@@ -706,10 +833,11 @@
     function displayResult(result, inputDialect) {
       // 地域情報をバッジ形式で表示する
       const regionEl = document.getElementById('result-region');
-      regionEl.innerHTML = `<span class="region-badge">📍 ${escapeHtml(result.region || '不明')}</span>`;
+      regionEl.innerHTML = `<span class="region-badge">${escapeHtml(result.region || '不明')}</span>`;
 
-      // 読み方（ふりがな）を表示する
-      document.getElementById('result-reading').textContent = result.reading || '情報なし';
+      // 読み方（ふりがな）を大きめのテキストで表示する
+      const readingEl = document.getElementById('result-reading');
+      readingEl.innerHTML = `<span class="reading-text">${escapeHtml(result.reading || '—')}</span>`;
 
       // 標準語の意味を表示する
       document.getElementById('result-meaning').textContent = result.meaning || '情報なし';
@@ -728,7 +856,7 @@
           // 例文ブロックのHTML要素を作成する
           const block = document.createElement('div');
           block.className = 'example-block';
-          // 方言例文と標準語訳をHTMLエスケープしてから挿入する
+          // 方言例文と標準語訳をHTMLエスケープして挿入する
           block.innerHTML = `
             <p class="dialect-line">【方言】${escapeHtml(ex.dialect || '')}</p>
             <p class="standard-line">【標準語】${escapeHtml(ex.standard || '')}</p>
@@ -746,10 +874,10 @@
       const announcerEl = document.getElementById('result-announcer-points');
       // 以前の内容をクリアして再描画する
       announcerEl.innerHTML = '';
-      // announcer_pointsオブジェクトが存在する場合は各項目をブロックとして表示する
+      // announcer_pointsオブジェクトが存在する場合は各項目を黒ブロックで表示する
       const ap = result.announcer_points;
       if (ap) {
-        // アナウンサーポイント全体を囲むブロック要素を作成する
+        // アナウンサーポイント全体を囲む黒ブロック要素を作成する
         const apBlock = document.createElement('div');
         apBlock.className = 'announcer-block';
         // 3項目（放送使用可否・取材対応・発音注意）をHTMLエスケープして挿入する
@@ -793,14 +921,14 @@
       // disabledプロパティで操作を制御する
       btn.disabled = !enabled;
       // ボタンのラベルを状態に応じて変更する
-      btn.textContent = enabled ? '調べる' : '調べています...';
+      btn.textContent = enabled ? '調べる' : '分析中...';
     }
 
     // エラーメッセージを表示する関数
     function showError(message) {
       const el = document.getElementById('error-msg');
       // 警告アイコン付きでエラーメッセージを設定する
-      el.textContent = '⚠️ ' + message;
+      el.textContent = '⚠ ' + message;
       el.style.display = 'block';
     }
 
