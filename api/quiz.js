@@ -1,34 +1,31 @@
-// Vercelサーバーレス関数：方言クイズの出題生成（generate）と採点（grade）を処理する
-// 認証：Supabaseセッショントークン（Authorization: Bearer）または ACCESS_CODE のどちらかを受け付ける
+// Vercelサーバーレス関数：方言クイズ出題（generate）と採点（grade）
+// 認証：Supabaseトークン or ACCESS_CODE
 
 const { verifyAuth } = require('./_auth');
+const { logUsage }   = require('./_log');
 
 module.exports = async function handler(req, res) {
-  // POST 以外のリクエストメソッドは受け付けない
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // ── 認証：Supabaseトークン or ACCESS_CODE ───────────────
+  // ── 認証 ──────────────────────────────────────────────────
   const auth = await verifyAuth(req);
   if (!auth.ok) {
     return res.status(401).json({ error: 'アクセスコードが正しくないか、ログインが必要です' });
   }
 
-  // リクエストボディからパラメータを取り出す（accessCode は _auth.js が消費済み）
   const { action, region, usedWords, word, question, userAnswer } = req.body;
 
-  // ── APIキーの取得 ────────────────────────────────────
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'サーバー設定エラー：ANTHROPIC_API_KEY が設定されていません' });
   }
 
-  // ── アクション分岐 ────────────────────────────────────
+  // ── アクション分岐 ─────────────────────────────────────────
   let prompt;
 
   if (action === 'generate') {
-    // ── 出題生成モード ─────────────────────────────────
     const regionStr = region || '日本全国';
     const avoidStr  = Array.isArray(usedWords) && usedWords.length > 0
       ? `\n以下の単語・表現はすでに出題済みなので絶対に使わないでください：${usedWords.join('、')}`
@@ -49,7 +46,6 @@ module.exports = async function handler(req, res) {
 }`;
 
   } else if (action === 'grade') {
-    // ── 採点・解説モード ───────────────────────────────
     if (!word || !userAnswer) {
       return res.status(400).json({ error: '採点に必要なパラメータが不足しています（word / userAnswer）' });
     }
@@ -78,19 +74,19 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: `不明なアクション: ${action}` });
   }
 
-  // ── Anthropic API 呼び出し ─────────────────────────
+  // ── Anthropic API 呼び出し ─────────────────────────────────
   try {
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'x-api-key':        apiKey,
         'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
+        'content-type':      'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model:      'claude-sonnet-4-6',
         max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
+        messages:   [{ role: 'user', content: prompt }],
       }),
     });
 
@@ -104,7 +100,6 @@ module.exports = async function handler(req, res) {
     const data    = await anthropicRes.json();
     const rawText = data.content?.[0]?.text || '';
 
-    // ── JSONパース（コードブロック除去＋正規表現フォールバック）──
     let cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     if (!cleaned.startsWith('{')) {
       const match = cleaned.match(/\{[\s\S]*\}/);
@@ -117,6 +112,15 @@ module.exports = async function handler(req, res) {
     } catch {
       return res.status(500).json({ error: 'AIの応答をJSONとして解析できませんでした。もう一度お試しください。' });
     }
+
+    // ── 利用ログを記録してからレスポンスを返す ──────────────
+    // action 名に 'quiz_' プレフィックスを付けて lookup と区別する
+    await logUsage({
+      userId:     auth.userId,
+      authMethod: auth.method,
+      action:     'quiz_' + action,   // 'quiz_generate' or 'quiz_grade'
+      region:     region || null,
+    });
 
     return res.status(200).json(result);
 
