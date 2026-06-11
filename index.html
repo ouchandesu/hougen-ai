@@ -1,32 +1,27 @@
 <!DOCTYPE html>
-<!-- 方言教育ツール：調べるモード＋研修モード（クイズ形式）-->
+<!-- 方言教育ツール：調べるモード＋研修モード（クイズ形式）＋Supabaseアカウント機能 -->
 <html lang="ja">
 <head>
-  <!-- 文字コードの指定 -->
   <meta charset="UTF-8">
-  <!-- レスポンシブ対応のビューポート設定 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- ページタイトル -->
   <title>方言ナビ - アナウンサー向け方言学習ツール</title>
   <style>
-    /* ── CSS変数：全色・余白を一元管理 ──────────────────── */
+    /* ── CSS変数 ────────────────────────────────────────── */
     :root {
-      --black:    #0a0a0a;   /* メインの黒 */
-      --white:    #ffffff;   /* 純白 */
-      --gray-50:  #f7f7f7;   /* 背景・入力フィールド */
-      --gray-100: #efefef;   /* 区切り線・薄いボーダー */
-      --gray-200: #e0e0e0;   /* 標準ボーダー */
-      --gray-400: #aaaaaa;   /* ミュートテキスト */
-      --gray-600: #666666;   /* サブテキスト */
-      --gray-800: #2a2a2a;   /* ホバー黒 */
+      --black:    #0a0a0a;
+      --white:    #ffffff;
+      --gray-50:  #f7f7f7;
+      --gray-100: #efefef;
+      --gray-200: #e0e0e0;
+      --gray-400: #aaaaaa;
+      --gray-600: #666666;
+      --gray-800: #2a2a2a;
     }
 
-    /* ── リセット ─────────────────────────────────────── */
-    /* ページ全体のリセット */
+    /* ── リセット ───────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ── ボディ ───────────────────────────────────────── */
-    /* ベーススタイル：システムフォントで可読性重視 */
+    /* ── ボディ ─────────────────────────────────────────── */
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial,
                    'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
@@ -36,302 +31,613 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── ヘッダー ────────────────────────────────────── */
-    /* 黒背景の全幅バー */
-    header { background: var(--black); color: var(--white); text-align: center; padding: 44px 16px 40px; }
-    /* タグライン */
-    header .tagline { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 14px; }
-    /* メインタイトル */
-    header h1 { font-size: 2.6rem; font-weight: 700; letter-spacing: 0.06em; line-height: 1; }
-    /* サブタイトル */
+    /* ── ヘッダー ───────────────────────────────────────── */
+    header {
+      background: var(--black);
+      color: var(--white);
+      text-align: center;
+      padding: 44px 16px 40px;
+      position: relative;
+    }
+    header .tagline  { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 14px; }
+    header h1        { font-size: 2.6rem; font-weight: 700; letter-spacing: 0.06em; line-height: 1; }
     header .subtitle { margin-top: 10px; font-size: 0.82rem; color: var(--gray-400); letter-spacing: 0.06em; }
 
-    /* ── コンテナ ────────────────────────────────────── */
-    /* コンテンツ最大幅とセンタリング */
+    /* ── ヘッダー認証バー ───────────────────────────────── */
+    /* 右上に絶対配置。モバイルではヘッダー上部に横並び */
+    .header-auth {
+      position: absolute;
+      top: 14px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-email {
+      font-size: 0.72rem;
+      color: var(--gray-400);
+      letter-spacing: 0.03em;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    /* ゴーストボタン：暗背景用 */
+    .auth-btn {
+      padding: 6px 14px;
+      background: transparent;
+      color: var(--gray-400);
+      border: 1px solid var(--gray-600);
+      border-radius: 2px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: color 0.12s, border-color 0.12s;
+      white-space: nowrap;
+    }
+    .auth-btn:hover { color: var(--white); border-color: var(--white); }
+
+    /* モバイル：絶対配置→static に変更してヘッダー上部バーに */
+    @media (max-width: 500px) {
+      header { padding-top: 20px; }
+      .header-auth {
+        position: static;
+        justify-content: flex-end;
+        margin-bottom: 10px;
+      }
+    }
+
+    /* ── 認証モーダル ───────────────────────────────────── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .modal-box {
+      background: var(--white);
+      border-radius: 4px;
+      width: 100%;
+      max-width: 400px;
+      padding: 28px 28px 24px;
+      position: relative;
+    }
+    .modal-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 18px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      background: none;
+      border: none;
+      font-size: 1.4rem;
+      cursor: pointer;
+      color: var(--gray-400);
+      line-height: 1;
+      padding: 4px;
+    }
+    .modal-close:hover { color: var(--black); }
+    /* モーダル内タブ（ログイン / 新規登録） */
+    .modal-tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--gray-100);
+    }
+    .modal-tab {
+      flex: 1;
+      padding: 9px;
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--gray-400);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.12s;
+    }
+    .modal-tab.active { color: var(--black); border-bottom-color: var(--black); }
+    /* モーダル内メッセージ */
+    .auth-msg {
+      padding: 10px 14px;
+      border-radius: 3px;
+      font-size: 0.83rem;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .auth-msg.error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .auth-msg.success { background: #f0fdf4; color: #15803d; border: 1px solid #86efac; }
+    /* モーダル内入力欄 */
+    .auth-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      background: var(--gray-50);
+      color: var(--black);
+      transition: border-color 0.15s, background 0.15s;
+      display: block;
+      margin-bottom: 12px;
+    }
+    .auth-input:focus { outline: none; border-color: var(--black); background: var(--white); }
+    /* モーダル内送信ボタン */
+    .auth-submit-btn {
+      display: block;
+      width: 100%;
+      padding: 13px;
+      background: var(--black);
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 4px;
+    }
+    .auth-submit-btn:hover    { background: var(--gray-800); }
+    .auth-submit-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+    /* モーダル下部の注記 */
+    .auth-form-note { font-size: 0.7rem; color: var(--gray-400); margin-top: 14px; line-height: 1.6; text-align: center; }
+
+    /* ── コンテナ ───────────────────────────────────────── */
     .container { max-width: 700px; margin: 0 auto; padding: 28px 16px 56px; }
 
-    /* ── カード ──────────────────────────────────────── */
-    /* 白いカードの共通スタイル */
+    /* ── カード ─────────────────────────────────────────── */
     .card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 4px; padding: 24px 28px; margin-bottom: 14px; }
-    /* カード内の見出し：小文字・グレー・下線で区切る */
-    .card > h2 { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-400); padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--gray-100); }
+    .card > h2 {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .card-header h2 {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+    }
 
-    /* ── カードヘッダー（見出し＋ボタン横並び） ─────── */
-    /* 見出しと右端のリンクを横並びにするレイアウト */
-    .card-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--gray-100); }
-    /* card-header 内の h2 はボーダー・マージン不要 */
-    .card-header h2 { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    /* ── フィールドラベル ───────────────────────────────── */
+    .field-label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--gray-400);
+      margin-bottom: 7px;
+    }
 
-    /* ── フィールドラベル ────────────────────────────── */
-    /* 入力項目上に付く小さなラベル */
-    .field-label { display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 7px; }
-
-    /* ── APIキー入力 ─────────────────────────────────── */
-    /* モノスペースフォントで API キーを見やすく */
-    .api-key-input { width: 100%; padding: 11px 14px; border: 1px solid var(--gray-200); border-radius: 3px; font-size: 0.88rem; font-family: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace; color: var(--black); background: var(--gray-50); transition: border-color 0.15s, background 0.15s; }
-    /* フォーカス時：黒ボーダーで強調 */
+    /* ── アクセスコード入力 ─────────────────────────────── */
+    .api-key-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 0.88rem;
+      font-family: 'SF Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+      color: var(--black);
+      background: var(--gray-50);
+      transition: border-color 0.15s, background 0.15s;
+    }
     .api-key-input:focus { outline: none; border-color: var(--black); background: var(--white); }
-    /* 注意書き */
     .api-key-note { margin-top: 8px; font-size: 0.73rem; color: var(--gray-400); line-height: 1.6; }
 
-    /* ── タブバー ─────────────────────────────────────── */
-    /* 調べるモード／研修モードを切り替えるタブ */
+    /* ── タブバー（調べる / 研修） ─────────────────────── */
     .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; }
-    /* タブボタン共通 */
-    .tab-btn { flex: 1; padding: 12px; background: var(--white); color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 3px; font-size: 0.78rem; font-weight: 700; font-family: inherit; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; }
-    /* アクティブなタブ：黒背景・白テキスト */
-    .tab-btn.active { background: var(--black); color: var(--white); border-color: var(--black); }
-    /* 非アクティブのホバー */
-    .tab-btn:hover:not(.active) { background: var(--gray-100); color: var(--black); }
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      background: var(--white);
+      color: var(--gray-600);
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active              { background: var(--black); color: var(--white); border-color: var(--black); }
+    .tab-btn:hover:not(.active)  { background: var(--gray-100); color: var(--black); }
 
-    /* ── 地域セレクト（調べるモード） ─────────────────── */
-    /* カスタム矢印付きセレクトボックス */
-    #region-select { width: 100%; padding: 11px 40px 11px 14px; border: 1px solid var(--gray-200); border-radius: 3px; font-size: 0.95rem; font-family: inherit; color: var(--black); background-color: var(--gray-50); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%230a0a0a' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; transition: border-color 0.15s, background 0.15s; margin-bottom: 20px; }
-    /* フォーカス時 */
-    #region-select:focus { outline: none; border-color: var(--black); background-color: var(--white); }
+    /* ── セレクトボックス共通 ──────────────────────────── */
+    #region-select, .quiz-select {
+      width: 100%;
+      padding: 11px 40px 11px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      color: var(--black);
+      background-color: var(--gray-50);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%230a0a0a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 20px;
+    }
+    #region-select:focus, .quiz-select:focus {
+      outline: none;
+      border-color: var(--black);
+      background-color: var(--white);
+    }
 
-    /* ── クイズ用セレクト（研修モード） ─────────────── */
-    /* 研修モードの地域・出題数セレクト（#region-select と同スタイル） */
-    .quiz-select { width: 100%; padding: 11px 40px 11px 14px; border: 1px solid var(--gray-200); border-radius: 3px; font-size: 0.95rem; font-family: inherit; color: var(--black); background-color: var(--gray-50); cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 12 12'%3E%3Cpath fill='%230a0a0a' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; transition: border-color 0.15s, background 0.15s; margin-bottom: 20px; }
-    /* フォーカス時 */
-    .quiz-select:focus { outline: none; border-color: var(--black); background-color: var(--white); }
-
-    /* ── サンプルボタン ───────────────────────────────── */
-    /* サンプルボタンエリアのコンテナ */
-    .sample-buttons-area { margin-bottom: 20px; }
-    /* ラベル */
+    /* ── サンプルボタン ────────────────────────────────── */
+    .sample-buttons-area  { margin-bottom: 20px; }
     .sample-buttons-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 10px; }
-    /* ボタン横並び（折り返しあり） */
-    .sample-buttons-row { display: flex; flex-wrap: wrap; gap: 8px; }
-    /* 個々のサンプルボタン：アウトライン型 */
-    .sample-btn { padding: 6px 16px; background: var(--white); color: var(--black); border: 1px solid var(--gray-800); border-radius: 2px; font-size: 0.88rem; font-family: inherit; cursor: pointer; letter-spacing: 0.02em; transition: background 0.12s, color 0.12s; }
-    /* ホバー：黒反転 */
-    .sample-btn:hover { background: var(--black); color: var(--white); }
-    /* 押下 */
+    .sample-buttons-row   { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sample-btn {
+      padding: 6px 16px;
+      background: var(--white);
+      color: var(--black);
+      border: 1px solid var(--gray-800);
+      border-radius: 2px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.12s, color 0.12s;
+    }
+    .sample-btn:hover  { background: var(--black); color: var(--white); }
     .sample-btn:active { background: var(--gray-800); color: var(--white); }
 
-    /* ── テキストエリア ───────────────────────────────── */
-    /* 方言入力テキストエリア */
-    #dialect-input { width: 100%; height: 110px; padding: 12px 14px; border: 1px solid var(--gray-200); border-radius: 3px; font-size: 1.05rem; resize: vertical; font-family: inherit; line-height: 1.7; background: var(--gray-50); color: var(--black); transition: border-color 0.15s, background 0.15s; }
-    /* フォーカス時 */
+    /* ── テキストエリア ────────────────────────────────── */
+    #dialect-input {
+      width: 100%;
+      height: 110px;
+      padding: 12px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 1.05rem;
+      resize: vertical;
+      font-family: inherit;
+      line-height: 1.7;
+      background: var(--gray-50);
+      color: var(--black);
+      transition: border-color 0.15s, background 0.15s;
+    }
     #dialect-input:focus { outline: none; border-color: var(--black); background: var(--white); }
 
-    /* ── 調べるボタン ────────────────────────────────── */
-    /* 黒背景・白テキスト */
-    #search-btn { display: block; width: 100%; margin-top: 14px; padding: 14px; background: var(--black); color: var(--white); font-size: 0.82rem; font-weight: 700; font-family: inherit; letter-spacing: 0.2em; text-transform: uppercase; border: none; border-radius: 3px; cursor: pointer; transition: background 0.15s; }
-    #search-btn:hover { background: var(--gray-800); }
+    /* ── 調べるボタン ──────────────────────────────────── */
+    #search-btn {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--black);
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #search-btn:hover    { background: var(--gray-800); }
     #search-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
 
-    /* ── ローディング（共通） ─────────────────────────── */
-    /* 回転アニメーション定義 */
+    /* ── ローディング共通 ──────────────────────────────── */
     @keyframes spin { to { transform: rotate(360deg); } }
-    /* ローディングエリア */
     #loading { display: none; text-align: center; padding: 44px; color: var(--gray-600); }
-    /* 黒のスピナーアイコン */
-    #loading .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--gray-200); border-top-color: var(--black); border-radius: 50%; animation: spin 0.65s linear infinite; margin-bottom: 12px; }
-    /* ローディングテキスト */
+    #loading .spinner {
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--gray-200);
+      border-top-color: var(--black);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      margin-bottom: 12px;
+    }
     #loading p { font-size: 0.78rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); }
 
-    /* ── 結果エリア ───────────────────────────────────── */
-    /* 調べるモードの結果カード */
+    /* ── 結果エリア ────────────────────────────────────── */
     #result-area { display: none; }
 
-    /* ── 地域・読み方グリッド ────────────────────────── */
-    /* 2カラムグリッドラッパー */
-    .result-grid-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-bottom: 1px solid var(--gray-100); padding-bottom: 20px; margin-bottom: 20px; }
-    /* グリッド内セクションは独自の下線を持たない */
+    /* ── 地域・読み方グリッド ─────────────────────────── */
+    .result-grid-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border-bottom: 1px solid var(--gray-100);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+    }
     .result-grid-wrapper .result-section { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-    /* 左カラム：右に区切り線 */
     .result-grid-wrapper .result-section:first-child { border-right: 1px solid var(--gray-200); padding-right: 28px; }
-    /* 右カラム：左パディング */
-    .result-grid-wrapper .result-section:last-child { padding-left: 28px; }
-    /* モバイル：縦積みに変更 */
+    .result-grid-wrapper .result-section:last-child  { padding-left: 28px; }
     @media (max-width: 540px) {
       .result-grid-wrapper { grid-template-columns: 1fr; }
-      .result-grid-wrapper .result-section:first-child { border-right: none; padding-right: 0; border-bottom: 1px solid var(--gray-100); padding-bottom: 16px; margin-bottom: 16px; }
+      .result-grid-wrapper .result-section:first-child {
+        border-right: none; padding-right: 0;
+        border-bottom: 1px solid var(--gray-100); padding-bottom: 16px; margin-bottom: 16px;
+      }
       .result-grid-wrapper .result-section:last-child { padding-left: 0; }
     }
 
-    /* ── 結果セクション共通 ──────────────────────────── */
-    /* 各セクションの区切り */
+    /* ── 結果セクション共通 ────────────────────────────── */
     .result-section { border-bottom: 1px solid var(--gray-100); padding-bottom: 20px; margin-bottom: 20px; }
     .result-section:last-child { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
-    /* ラベル：極小・大文字・グレー */
     .result-section .label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 9px; }
-    /* 本文テキスト */
     .result-section .value { font-size: 1.02rem; line-height: 1.85; color: var(--black); }
 
-    /* ── 地域バッジ ───────────────────────────────────── */
-    /* 黒のシンプルバッジ */
     .region-badge { display: inline-block; background: var(--black); color: var(--white); border-radius: 2px; padding: 4px 12px; font-size: 0.88rem; font-weight: 500; letter-spacing: 0.04em; }
-
-    /* ── 読み方テキスト ───────────────────────────────── */
-    /* 大きめフォントで視認性確保 */
     .reading-text { font-size: 1.5rem; font-weight: 400; letter-spacing: 0.06em; color: var(--black); line-height: 1.4; }
 
-    /* ── 例文ブロック ────────────────────────────────── */
-    /* 黒左ボーダー付きブロック */
+    /* ── 例文ブロック ──────────────────────────────────── */
     .example-block { background: var(--gray-50); border-left: 2px solid var(--black); padding: 14px 18px; margin-top: 10px; }
     .example-block p { font-size: 0.97rem; line-height: 1.8; }
-    /* 方言例文：太字・黒 */
-    .example-block .dialect-line { font-weight: 600; color: var(--black); }
-    /* 標準語訳：グレー */
+    .example-block .dialect-line  { font-weight: 600; color: var(--black); }
     .example-block .standard-line { color: var(--gray-600); margin-top: 2px; }
 
-    /* ── アナウンサーへのポイント ────────────────────── */
-    /* 黒背景で他セクションと明確に区別 */
+    /* ── アナウンサーへのポイント ─────────────────────── */
     .announcer-block { background: var(--black); color: var(--white); padding: 20px 22px; border-radius: 3px; margin-top: 4px; }
-    /* 項目ラベル */
     .announcer-block .point-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-400); margin-top: 16px; margin-bottom: 5px; }
     .announcer-block .point-label:first-child { margin-top: 0; }
-    /* 本文テキスト */
     .announcer-block .point-value { font-size: 0.97rem; line-height: 1.8; color: #e4e4e4; }
 
-    /* ── エラーメッセージ ────────────────────────────── */
-    /* 調べるモード用エラー */
+    /* ── エラーメッセージ ──────────────────────────────── */
     #error-msg { display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; padding: 13px 18px; color: #b91c1c; font-size: 0.88rem; margin-bottom: 14px; }
 
-    /* ── 研修モード：進捗バー ───────────────────────── */
-    /* 進捗バーのラッパー */
-    .quiz-progress-wrap { margin-bottom: 18px; }
-    /* 背景バー */
-    .quiz-progress-bar { height: 3px; background: var(--gray-100); border-radius: 2px; margin-bottom: 7px; }
-    /* 塗りつぶし（widthをJS で更新） */
-    .quiz-progress-fill { height: 100%; background: var(--black); border-radius: 2px; transition: width 0.4s ease; }
-    /* 「問題 N / M」テキスト */
-    .quiz-progress-text { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); }
+    /* ── 研修モード：進捗バー ─────────────────────────── */
+    .quiz-progress-wrap  { margin-bottom: 18px; }
+    .quiz-progress-bar   { height: 3px; background: var(--gray-100); border-radius: 2px; margin-bottom: 7px; }
+    .quiz-progress-fill  { height: 100%; background: var(--black); border-radius: 2px; transition: width 0.4s ease; }
+    .quiz-progress-text  { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); }
 
-    /* ── 研修モード：単語表示エリア ─────────────────── */
-    /* 出題された方言を大きく見せるエリア */
-    .quiz-word-area { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 3px; padding: 24px 20px; text-align: center; margin-bottom: 18px; }
-    /* 地域を示す小バッジ */
-    .quiz-region-pill { display: inline-block; background: var(--gray-200); color: var(--gray-600); border-radius: 2px; padding: 3px 10px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; margin-bottom: 12px; }
-    /* 方言単語（大きく表示） */
-    .quiz-word { font-size: 2rem; font-weight: 500; letter-spacing: 0.04em; color: var(--black); line-height: 1.3; margin-bottom: 10px; }
-    /* 問題文 */
-    .quiz-question-text { font-size: 0.9rem; color: var(--gray-600); line-height: 1.6; }
+    /* ── 研修モード：単語エリア ────────────────────────── */
+    .quiz-word-area      { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 3px; padding: 24px 20px; text-align: center; margin-bottom: 18px; }
+    .quiz-region-pill    { display: inline-block; background: var(--gray-200); color: var(--gray-600); border-radius: 2px; padding: 3px 10px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; margin-bottom: 12px; }
+    .quiz-word           { font-size: 2rem; font-weight: 500; letter-spacing: 0.04em; color: var(--black); line-height: 1.3; margin-bottom: 10px; }
+    .quiz-question-text  { font-size: 0.9rem; color: var(--gray-600); line-height: 1.6; }
 
-    /* ── 研修モード：回答入力 ───────────────────────── */
-    /* テキスト入力欄 */
-    #quiz-answer-input { width: 100%; padding: 11px 14px; border: 1px solid var(--gray-200); border-radius: 3px; font-size: 1rem; font-family: inherit; background: var(--gray-50); color: var(--black); transition: border-color 0.15s, background 0.15s; }
+    /* ── 研修モード：回答入力 ─────────────────────────── */
+    #quiz-answer-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--gray-200);
+      border-radius: 3px;
+      font-size: 1rem;
+      font-family: inherit;
+      background: var(--gray-50);
+      color: var(--black);
+      transition: border-color 0.15s, background 0.15s;
+    }
     #quiz-answer-input:focus { outline: none; border-color: var(--black); background: var(--white); }
-    /* 回答ボタン */
-    #quiz-submit-btn { display: block; width: 100%; margin-top: 12px; padding: 13px; background: var(--black); color: var(--white); font-size: 0.82rem; font-weight: 700; font-family: inherit; letter-spacing: 0.2em; text-transform: uppercase; border: none; border-radius: 3px; cursor: pointer; transition: background 0.15s; }
-    #quiz-submit-btn:hover { background: var(--gray-800); }
+    #quiz-submit-btn {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      padding: 13px;
+      background: var(--black);
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #quiz-submit-btn:hover    { background: var(--gray-800); }
     #quiz-submit-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
 
-    /* ── 研修モード：採点バッジ ─────────────────────── */
-    /* 採点バッジ共通 */
-    .grade-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 20px; border-radius: 3px; font-size: 1rem; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 20px; border: 1px solid transparent; }
-    /* 正解：緑系 */
-    .grade-correct { background: #f0fdf4; color: #15803d; border-color: #86efac; }
-    /* 惜しい：黄系 */
-    .grade-close { background: #fefce8; color: #a16207; border-color: #fde047; }
-    /* 不正解：赤系 */
+    /* ── 研修モード：採点バッジ ────────────────────────── */
+    .grade-badge     { display: inline-flex; align-items: center; gap: 8px; padding: 8px 20px; border-radius: 3px; font-size: 1rem; font-weight: 700; letter-spacing: 0.06em; margin-bottom: 20px; border: 1px solid transparent; }
+    .grade-correct   { background: #f0fdf4; color: #15803d; border-color: #86efac; }
+    .grade-close     { background: #fefce8; color: #a16207; border-color: #fde047; }
     .grade-incorrect { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
 
-    /* ── 研修モード：採点結果セクション ────────────── */
-    /* 各項目のラベル＋テキスト */
-    .grade-section { margin-bottom: 16px; }
+    /* ── 研修モード：採点セクション ────────────────────── */
+    .grade-section            { margin-bottom: 16px; }
     .grade-section .grade-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 5px; }
     .grade-section .grade-value { font-size: 1rem; line-height: 1.8; color: var(--black); }
-    /* 「次の問題へ」ボタン */
-    .quiz-next-btn { display: block; width: 100%; margin-top: 20px; padding: 13px; background: var(--black); color: var(--white); font-size: 0.82rem; font-weight: 700; font-family: inherit; letter-spacing: 0.2em; text-transform: uppercase; border: none; border-radius: 3px; cursor: pointer; transition: background 0.15s; }
+    .quiz-next-btn {
+      display: block;
+      width: 100%;
+      margin-top: 20px;
+      padding: 13px;
+      background: var(--black);
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
     .quiz-next-btn:hover { background: var(--gray-800); }
 
-    /* ── 研修モード：最終結果 ───────────────────────── */
-    /* スコア大表示エリア */
+    /* ── 研修モード：最終結果 ─────────────────────────── */
     .finish-score-area { text-align: center; padding: 28px 0 18px; }
-    /* スコアの数値（例：3 / 5） */
-    .finish-score-num { font-size: 3.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--black); line-height: 1; }
-    /* 正答率テキスト */
+    .finish-score-num  { font-size: 3.2rem; font-weight: 700; letter-spacing: -0.02em; color: var(--black); line-height: 1; }
     .finish-score-rate { font-size: 0.85rem; color: var(--gray-400); letter-spacing: 0.1em; text-transform: uppercase; margin-top: 8px; }
-    /* 区切り線 */
-    .finish-divider { border: none; border-top: 1px solid var(--gray-100); margin: 18px 0; }
+    .finish-divider    { border: none; border-top: 1px solid var(--gray-100); margin: 18px 0; }
 
-    /* ── 研修モード：振り返りリスト ─────────────────── */
-    /* 各問の振り返り行 */
-    .review-item { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--gray-100); }
+    /* ── 研修モード：振り返りリスト ────────────────────── */
+    .review-item  { display: grid; grid-template-columns: 28px 1fr; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--gray-100); }
     .review-item:last-child { border-bottom: none; }
-    /* 問番号 */
-    .review-num { font-size: 0.7rem; font-weight: 700; color: var(--gray-400); letter-spacing: 0.1em; padding-top: 2px; }
-    /* 単語名 */
-    .review-word { font-size: 0.98rem; font-weight: 600; color: var(--black); margin-bottom: 4px; }
-    /* 採点バッジ＋地域の横並び */
-    .review-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-    /* ミニ採点バッジ */
-    .grade-mini { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; }
+    .review-num   { font-size: 0.7rem; font-weight: 700; color: var(--gray-400); letter-spacing: 0.1em; padding-top: 2px; }
+    .review-word  { font-size: 0.98rem; font-weight: 600; color: var(--black); margin-bottom: 4px; }
+    .review-meta  { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .grade-mini   { display: inline-block; padding: 2px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; }
     .grade-mini.grade-correct   { background: #f0fdf4; color: #15803d; }
     .grade-mini.grade-close     { background: #fefce8; color: #a16207; }
     .grade-mini.grade-incorrect { background: #fef2f2; color: #dc2626; }
-    /* 地域テキスト */
-    .review-region { font-size: 0.72rem; color: var(--gray-400); }
-    /* 正しい意味の要約 */
+    .review-region  { font-size: 0.72rem; color: var(--gray-400); }
     .review-meaning { font-size: 0.86rem; color: var(--gray-600); line-height: 1.6; }
 
-    /* ── 研修モード：学習記録 ───────────────────────── */
-    /* 記録の各行 */
+    /* ── 研修モード：学習記録 ─────────────────────────── */
     .record-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.86rem; }
     .record-item:last-child { border-bottom: none; }
-    /* 日付 */
-    .record-date { color: var(--gray-400); font-size: 0.78rem; white-space: nowrap; }
-    /* 地域・問題数 */
-    .record-info { color: var(--gray-600); }
-    /* スコア */
+    .record-date  { color: var(--gray-400); font-size: 0.78rem; white-space: nowrap; }
+    .record-info  { color: var(--gray-600); }
     .record-score { font-weight: 600; color: var(--black); white-space: nowrap; }
-    /* 正答率（%） */
-    .record-rate { color: var(--gray-400); font-weight: 400; margin-left: 6px; font-size: 0.8rem; }
-    /* 記録なし時のメッセージ */
+    .record-rate  { color: var(--gray-400); font-weight: 400; margin-left: 6px; font-size: 0.8rem; }
     .records-empty { color: var(--gray-400); font-size: 0.86rem; text-align: center; padding: 16px 0; }
-    /* localStorage に関する注記 */
-    .records-note { margin-top: 12px; font-size: 0.7rem; color: var(--gray-400); line-height: 1.5; }
+    .records-note  { margin-top: 12px; font-size: 0.7rem; color: var(--gray-400); line-height: 1.5; }
+    /* クラウド保存バッジ */
+    .cloud-badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 2px;
+      padding: 2px 8px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
 
-    /* ── 研修モード：クイズ内エラー ─────────────────── */
-    /* エラーメッセージ（赤系） */
+    /* ── 研修モード：クイズ内エラー ────────────────────── */
     .quiz-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; padding: 13px 18px; color: #b91c1c; font-size: 0.88rem; margin-bottom: 14px; }
 
-    /* ── 研修モード：クイズ内ローディング ──────────── */
-    /* スピナー付きローディング（調べるモードと同デザイン） */
+    /* ── 研修モード：クイズ内ローディング ─────────────── */
     #quiz-loading { display: none; text-align: center; padding: 44px; }
     #quiz-loading .spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--gray-200); border-top-color: var(--black); border-radius: 50%; animation: spin 0.65s linear infinite; margin-bottom: 12px; }
     #quiz-loading p { font-size: 0.78rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); }
 
-    /* ── 研修モード：「最初に戻る」リンク ──────────── */
-    /* ゴーストボタン風のテキストリンク */
-    .quiz-back-link { font-size: 0.75rem; color: var(--gray-400); cursor: pointer; border: none; background: none; font-family: inherit; padding: 0; text-decoration: underline; transition: color 0.12s; }
+    /* ── 研修モード：各種ボタン ────────────────────────── */
+    .quiz-back-link {
+      font-size: 0.75rem;
+      color: var(--gray-400);
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: inherit;
+      padding: 0;
+      text-decoration: underline;
+      transition: color 0.12s;
+    }
     .quiz-back-link:hover { color: var(--black); }
-
-    /* ── 研修モード：研修開始ボタン ─────────────────── */
-    /* 調べるボタンと同スタイル */
-    #quiz-start-btn { display: block; width: 100%; padding: 14px; background: var(--black); color: var(--white); font-size: 0.82rem; font-weight: 700; font-family: inherit; letter-spacing: 0.2em; text-transform: uppercase; border: none; border-radius: 3px; cursor: pointer; transition: background 0.15s; }
+    #quiz-start-btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: var(--black);
+      color: var(--white);
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
     #quiz-start-btn:hover { background: var(--gray-800); }
 
-    /* ── フッター ─────────────────────────────────────── */
-    /* 黒背景でヘッダーと統一 */
+    /* ── フッター ───────────────────────────────────────── */
     footer { background: var(--black); color: var(--gray-400); text-align: center; font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 22px 16px; }
   </style>
 </head>
 <body>
 
-  <!-- ページヘッダー：黒背景でブロードキャスト感を演出 -->
+  <!-- ページヘッダー -->
   <header>
-    <!-- タグライン -->
+    <!-- 右上の認証バー（JS で更新される） -->
+    <div class="header-auth" id="header-auth"></div>
     <div class="tagline">Announcer's Learning Tool</div>
-    <!-- メインタイトル -->
     <h1>方言ナビ</h1>
-    <!-- サブタイトル -->
     <p class="subtitle">日本各地の方言をプロの視点で学ぶ</p>
   </header>
 
-  <!-- メインコンテンツのコンテナ -->
+  <!-- ── 認証モーダル ────────────────────────────────────── -->
+  <div id="auth-modal" class="modal-overlay" style="display:none" onclick="onModalOverlayClick(event)">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeAuthModal()" aria-label="閉じる">×</button>
+      <div class="modal-title">アカウント</div>
+
+      <!-- ログイン / 新規登録タブ -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-tab="login"  onclick="switchAuthTab('login')">ログイン</button>
+        <button class="modal-tab"        data-tab="signup" onclick="switchAuthTab('signup')">新規登録</button>
+      </div>
+
+      <!-- メッセージ（エラー / 成功） -->
+      <div id="auth-msg" class="auth-msg" style="display:none"></div>
+
+      <!-- ログインフォーム -->
+      <div id="auth-login-form">
+        <label class="field-label" for="auth-email">メールアドレス</label>
+        <input type="email"    id="auth-email"    class="auth-input" placeholder="example@example.com" autocomplete="email" />
+        <label class="field-label" for="auth-password">パスワード</label>
+        <input type="password" id="auth-password" class="auth-input" placeholder="パスワード" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter' && !event.isComposing) doLogin()" />
+        <button id="auth-login-btn" class="auth-submit-btn" onclick="doLogin()">ログイン</button>
+        <p class="auth-form-note">パスワードを忘れた場合はシステム管理者にお問い合わせください。</p>
+      </div>
+
+      <!-- 新規登録フォーム -->
+      <div id="auth-signup-form" style="display:none">
+        <label class="field-label" for="auth-signup-email">メールアドレス</label>
+        <input type="email"    id="auth-signup-email"    class="auth-input" placeholder="example@example.com" autocomplete="email" />
+        <label class="field-label" for="auth-signup-password">パスワード（6文字以上）</label>
+        <input type="password" id="auth-signup-password" class="auth-input" placeholder="パスワード" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter' && !event.isComposing) doSignup()" />
+        <button id="auth-signup-btn" class="auth-submit-btn" onclick="doSignup()">新規登録</button>
+        <p class="auth-form-note">登録後、確認メールが届きます。メール内のリンクをクリックするとログインできます。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
   <div class="container">
 
-    <!-- アクセスコード認証カード（調べるモード・研修モード共通） -->
+    <!-- アクセスコード認証カード -->
     <div class="card">
       <h2>アクセス認証</h2>
-      <!-- アクセスコードラベル -->
       <label class="field-label" for="access-code">アクセスコード</label>
-      <!-- パスワード形式で非表示。入力のたびに localStorage に保存する -->
+      <!-- 入力のたびに localStorage に保存する -->
       <input
         type="password"
         id="access-code"
@@ -340,34 +646,29 @@
         autocomplete="off"
         oninput="localStorage.setItem('accessCode', this.value)"
       />
-      <!-- アクセスコードの説明テキスト -->
-      <p class="api-key-note">管理者から発行されたアクセスコードを入力してください。入力値はこのブラウザにのみ保存されます。</p>
+      <p class="api-key-note" id="access-code-note">
+        管理者から発行されたアクセスコードを入力してください。入力値はこのブラウザにのみ保存されます。
+        ログインしている場合はアクセスコードなしで利用できます。
+      </p>
     </div>
 
-    <!-- タブバー：調べるモード / 研修モードを切り替える -->
+    <!-- タブバー -->
     <div class="tab-bar">
-      <!-- 調べるモードタブ（初期アクティブ） -->
-      <button class="tab-btn active" data-tab="search" onclick="switchTab('search')">調べるモード</button>
-      <!-- 研修モードタブ -->
-      <button class="tab-btn" data-tab="training" onclick="switchTab('training')">研修モード</button>
+      <button class="tab-btn active" data-tab="search"   onclick="switchTab('search')">調べるモード</button>
+      <button class="tab-btn"        data-tab="training" onclick="switchTab('training')">研修モード</button>
     </div>
 
-    <!-- ════════════════════════════════════════════════ -->
-    <!--  調べるモード                                     -->
-    <!-- ════════════════════════════════════════════════ -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  調べるモード                                         -->
+    <!-- ════════════════════════════════════════════════════ -->
     <div id="search-mode">
 
-      <!-- 方言入力カード -->
       <div class="card">
         <h2>方言・単語を入力</h2>
 
-        <!-- 地域選択ドロップダウンのラベル -->
         <label class="field-label" for="region-select">地域</label>
-        <!-- 地域選択セレクト：選択した地域が Claudeへのプロンプトに含まれる -->
         <select id="region-select" onchange="updateSampleButtons()">
-          <!-- 全国（デフォルト） -->
           <option value="">全国（デフォルト）</option>
-          <!-- 伊予弁（愛媛県）：先頭に配置 -->
           <option value="伊予弁（愛媛県）">伊予弁（愛媛県）</option>
           <option value="関西弁">関西弁</option>
           <option value="博多弁">博多弁</option>
@@ -375,90 +676,67 @@
           <option value="沖縄弁">沖縄弁</option>
         </select>
 
-        <!-- サンプルボタンエリア：地域に応じてボタンが切り替わる -->
         <div class="sample-buttons-area">
           <div class="sample-buttons-label">サンプル単語</div>
-          <!-- updateSampleButtons() によって動的生成される -->
           <div class="sample-buttons-row" id="sample-buttons-row"></div>
         </div>
 
-        <!-- 調べたい方言・単語を入力するテキストエリア -->
         <textarea
           id="dialect-input"
           placeholder="方言・単語を入力（例：ほやほや、なんくるないさ、ばってん…）"
         ></textarea>
-        <!-- 調べるボタン -->
         <button id="search-btn" onclick="searchDialect()">調べる</button>
       </div>
 
-      <!-- エラーメッセージ表示エリア（エラー時のみ表示） -->
       <div id="error-msg"></div>
 
-      <!-- ローディング表示エリア（API通信中に表示） -->
       <div id="loading">
         <div class="spinner"></div>
         <p>分析中</p>
       </div>
 
-      <!-- 結果表示エリア（API応答後に表示） -->
       <div id="result-area" class="card">
         <h2>調査結果</h2>
-
-        <!-- 地域と読み方を横並びグリッドで表示するラッパー -->
         <div class="result-grid-wrapper">
-          <!-- 地域情報セクション（左カラム） -->
           <div class="result-section">
             <div class="label">使われる地域</div>
             <div class="value" id="result-region"></div>
           </div>
-          <!-- 読み方（ふりがな）セクション（右カラム） -->
           <div class="result-section">
             <div class="label">読み方（ふりがな）</div>
             <div class="value" id="result-reading"></div>
           </div>
         </div>
-
-        <!-- 標準語訳セクション -->
         <div class="result-section">
           <div class="label">標準語での意味</div>
           <div class="value" id="result-meaning"></div>
         </div>
-
-        <!-- ニュアンスセクション -->
         <div class="result-section">
           <div class="label">使われる場面・ニュアンス</div>
           <div class="value" id="result-nuance"></div>
         </div>
-
-        <!-- 例文セクション -->
         <div class="result-section">
           <div class="label">例文</div>
           <div id="result-examples"></div>
         </div>
-
-        <!-- アナウンサーへのポイントセクション -->
         <div class="result-section">
           <div class="label">アナウンサーへのポイント</div>
-          <!-- 放送使用可否・取材対応・発音注意の3項目を黒ブロックで表示 -->
           <div id="result-announcer-points"></div>
         </div>
       </div>
 
     </div><!-- /#search-mode -->
 
-    <!-- ════════════════════════════════════════════════ -->
-    <!--  研修モード                                       -->
-    <!-- ════════════════════════════════════════════════ -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  研修モード                                           -->
+    <!-- ════════════════════════════════════════════════════ -->
     <div id="training-mode" style="display:none">
 
-      <!-- クイズ内エラーメッセージ（エラー時のみ表示） -->
       <div id="quiz-error-msg" class="quiz-error" style="display:none"></div>
 
-      <!-- ── セットアップ画面 ─────────────────────────── -->
+      <!-- セットアップ -->
       <div id="quiz-setup" class="card">
         <h2>研修モード設定</h2>
-
-        <!-- 地域選択 -->
         <label class="field-label" for="quiz-region">地域</label>
         <select id="quiz-region" class="quiz-select">
           <option value="">全国（デフォルト）</option>
@@ -468,205 +746,340 @@
           <option value="津軽弁">津軽弁</option>
           <option value="沖縄弁">沖縄弁</option>
         </select>
-
-        <!-- 出題数選択 -->
         <label class="field-label" for="quiz-count">出題数</label>
         <select id="quiz-count" class="quiz-select">
-          <!-- 5問コース -->
           <option value="5">5問</option>
-          <!-- 10問コース -->
           <option value="10">10問</option>
         </select>
-
-        <!-- 研修開始ボタン -->
         <button id="quiz-start-btn" onclick="startQuiz()">研修開始</button>
       </div>
 
-      <!-- ── クイズ内ローディング ──────────────────────── -->
-      <!-- API呼び出し中に表示（出題生成中・採点中） -->
+      <!-- クイズ内ローディング -->
       <div id="quiz-loading">
         <div class="spinner"></div>
-        <!-- テキストはJS で動的に変更される -->
         <p id="quiz-loading-text">問題を生成中...</p>
       </div>
 
-      <!-- ── 問題表示画面 ────────────────────────────── -->
+      <!-- 問題表示 -->
       <div id="quiz-question" class="card" style="display:none">
-        <!-- ヘッダー：見出し＋「最初に戻る」リンク -->
         <div class="card-header">
           <h2>出題</h2>
           <button class="quiz-back-link" onclick="resetQuiz()">最初に戻る</button>
         </div>
-
-        <!-- 進捗バー -->
         <div class="quiz-progress-wrap">
-          <!-- 塗りつぶし幅をJS で設定 -->
           <div class="quiz-progress-bar">
             <div class="quiz-progress-fill" id="quiz-progress-fill" style="width:0%"></div>
           </div>
-          <!-- 「問題 N / M」テキスト -->
           <div class="quiz-progress-text" id="quiz-progress-text">問題 1 / 5</div>
         </div>
-
-        <!-- 方言単語の大表示エリア -->
         <div class="quiz-word-area">
-          <!-- 地域ピル -->
           <div><span class="quiz-region-pill" id="quiz-region-label"></span></div>
-          <!-- 方言単語（大きく表示） -->
           <div class="quiz-word" id="quiz-word"></div>
-          <!-- 問題文 -->
           <div class="quiz-question-text" id="quiz-question-text"></div>
         </div>
-
-        <!-- 回答入力ラベル -->
         <label class="field-label" for="quiz-answer-input">あなたの回答</label>
-        <!-- 回答テキスト入力（Enterで送信） -->
         <input
           type="text"
           id="quiz-answer-input"
           placeholder="標準語で意味を入力してください"
           onkeydown="if(event.key==='Enter' && !event.isComposing) submitAnswer()"
         />
-        <!-- 回答送信ボタン -->
         <button id="quiz-submit-btn" onclick="submitAnswer()">回答する</button>
       </div>
 
-      <!-- ── 採点結果画面 ────────────────────────────── -->
+      <!-- 採点結果 -->
       <div id="quiz-grade" class="card" style="display:none">
-        <!-- ヘッダー：見出し＋「最初に戻る」リンク -->
         <div class="card-header">
           <h2>採点結果</h2>
           <button class="quiz-back-link" onclick="resetQuiz()">最初に戻る</button>
         </div>
-
-        <!-- 採点バッジ（正解/惜しい/不正解をカラーで表示） -->
         <div id="grade-badge" class="grade-badge"></div>
-
-        <!-- あなたの回答 -->
         <div class="grade-section">
           <div class="grade-label">あなたの回答</div>
           <div class="grade-value" id="grade-user-answer"></div>
         </div>
-
-        <!-- 正しい意味 -->
         <div class="grade-section">
           <div class="grade-label">正しい意味</div>
           <div class="grade-value" id="grade-correct-meaning"></div>
         </div>
-
-        <!-- 解説 -->
         <div class="grade-section">
           <div class="grade-label">解説</div>
           <div class="grade-value" id="grade-explanation"></div>
         </div>
-
-        <!-- アナウンサーの注意点（調べるモードと同じ黒ブロック） -->
         <div class="grade-section">
           <div class="grade-label">アナウンサーの注意点</div>
           <div id="grade-announcer-tips"></div>
         </div>
-
-        <!-- 次の問題へ / 結果を見る（最終問題時） -->
         <button class="quiz-next-btn" id="grade-next-btn" onclick="nextQuestion()">次の問題へ</button>
       </div>
 
-      <!-- ── 最終結果画面 ─────────────────────────────── -->
+      <!-- 最終結果 -->
       <div id="quiz-finish" class="card" style="display:none">
         <h2>研修完了</h2>
-
-        <!-- スコア大表示 -->
         <div class="finish-score-area">
-          <!-- 「N / M」 -->
-          <div class="finish-score-num" id="finish-score"></div>
-          <!-- 「正答率 xx%」 -->
+          <div class="finish-score-num"  id="finish-score"></div>
           <div class="finish-score-rate" id="finish-rate"></div>
         </div>
         <hr class="finish-divider">
-
-        <!-- 振り返り一覧 -->
         <div class="field-label" style="margin-bottom:12px">振り返り</div>
-        <!-- 各問の結果がJS で動的に挿入される -->
         <div id="finish-review"></div>
-
-        <!-- もう一度挑戦ボタン（セットアップに戻る） -->
         <button class="quiz-next-btn" style="margin-top:24px" onclick="resetQuiz()">もう一度挑戦する</button>
       </div>
 
-      <!-- ── 学習記録（研修モード内で常時表示） ───────── -->
+      <!-- 学習記録（常時表示） -->
       <div id="quiz-records" class="card">
-        <h2>これまでの記録</h2>
-        <!-- 記録一覧（renderRecords() で動的生成） -->
+        <!-- タイトルはJS でクラウドバッジを動的追加 -->
+        <div class="card-header" style="margin-bottom:14px">
+          <h2 id="records-title">これまでの記録</h2>
+        </div>
         <div id="records-list"></div>
-        <!-- localStorage に関する注記 -->
-        <p class="records-note">※ 記録はこのブラウザにのみ保存されます（localStorageを使用）。ブラウザデータを消去すると記録も削除されます。</p>
+        <p class="records-note" id="records-note">
+          ※ 記録はこのブラウザにのみ保存されます（localStorage使用）。ログインするとクラウドに保存されます。
+        </p>
       </div>
 
     </div><!-- /#training-mode -->
 
   </div><!-- /.container -->
 
-  <!-- フッター：黒背景でヘッダーと統一 -->
   <footer>
     <p>Powered by Claude API &nbsp;·&nbsp; 方言ナビ &copy; 2024</p>
   </footer>
 
-  <script>
-    // ════════════════════════════════════════════════════
-    //  共通初期化
-    // ════════════════════════════════════════════════════
+  <!-- Supabase JS SDK（UMD版）→ window.supabase.createClient() が使える -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 
-    // ページ読み込み完了時の初期処理
+  <script>
+    // ════════════════════════════════════════════════════════
+    //  Supabase クライアント・セッション状態
+    // ════════════════════════════════════════════════════════
+
+    let sbClient  = null;  // Supabase クライアント（初期化後に設定）
+    let sbSession = null;  // 現在のセッション
+    let sbUser    = null;  // 現在のユーザー
+
+    // /api/config を取得して Supabase を初期化する
+    async function initSupabase() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        // Supabase 未設定の場合（空値）はフォールバックモードのまま続行
+        if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+          updateAuthUI();
+          return;
+        }
+        sbClient = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+        // セッション変化を監視する
+        sbClient.auth.onAuthStateChange(async function(event, session) {
+          sbSession = session;
+          sbUser    = session ? session.user : null;
+          updateAuthUI();
+          // アクティブなログイン時に localStorage 記録をクラウドへ移行する
+          if (event === 'SIGNED_IN') {
+            await migrateLocalToCloud();
+          }
+          renderRecords();
+        });
+
+      } catch (e) {
+        // Supabase 初期化失敗時も ACCESS_CODE モードで動作継続する
+        console.warn('Supabase 初期化失敗（ACCESS_CODE モードで動作）:', e.message);
+        updateAuthUI();
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  認証 UI 更新
+    // ════════════════════════════════════════════════════════
+
+    function updateAuthUI() {
+      const el = document.getElementById('header-auth');
+      if (!el) return;
+
+      if (sbUser) {
+        // ログイン済み：メールアドレス＋ログアウトボタン
+        el.innerHTML =
+          '<span class="user-email">' + escapeHtml(sbUser.email) + '</span>' +
+          '<button class="auth-btn" onclick="doLogout()">ログアウト</button>';
+        // 記録ノートをクラウド保存の説明に変更する
+        const note = document.getElementById('records-note');
+        if (note) note.textContent = '※ 記録はSupabaseクラウドに保存されています。別のデバイスからログインしても記録を確認できます。';
+        // 記録タイトルにクラウドバッジを追加する
+        const title = document.getElementById('records-title');
+        if (title && !title.querySelector('.cloud-badge')) {
+          title.insertAdjacentHTML('beforeend', '<span class="cloud-badge">クラウド</span>');
+        }
+      } else {
+        // 未ログイン：ログイン/新規登録ボタン
+        el.innerHTML =
+          '<button class="auth-btn" onclick="openAuthModal()">ログイン / 新規登録</button>';
+        const note = document.getElementById('records-note');
+        if (note) note.textContent = '※ 記録はこのブラウザにのみ保存されます（localStorage使用）。ログインするとクラウドに保存されます。';
+        // クラウドバッジを削除する
+        const title = document.getElementById('records-title');
+        if (title) {
+          const badge = title.querySelector('.cloud-badge');
+          if (badge) badge.remove();
+        }
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  認証モーダル
+    // ════════════════════════════════════════════════════════
+
+    function openAuthModal() {
+      document.getElementById('auth-modal').style.display = 'flex';
+      clearAuthMsg();
+      setTimeout(function() { document.getElementById('auth-email').focus(); }, 50);
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').style.display = 'none';
+      clearAuthMsg();
+    }
+
+    // オーバーレイ部分クリックで閉じる（モーダル本体のクリックは伝播しない）
+    function onModalOverlayClick(e) {
+      if (e.target === document.getElementById('auth-modal')) closeAuthModal();
+    }
+
+    // ログイン / 新規登録タブを切り替える
+    function switchAuthTab(tab) {
+      const isLogin = tab === 'login';
+      document.getElementById('auth-login-form').style.display  = isLogin ? 'block' : 'none';
+      document.getElementById('auth-signup-form').style.display = isLogin ? 'none'  : 'block';
+      document.querySelectorAll('.modal-tab').forEach(function(t) {
+        t.classList.toggle('active', t.dataset.tab === tab);
+      });
+      clearAuthMsg();
+    }
+
+    // ログイン実行
+    async function doLogin() {
+      if (!sbClient) { showAuthMsg('error', 'Supabase が設定されていません。'); return; }
+      const email    = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      if (!email || !password) { showAuthMsg('error', 'メールアドレスとパスワードを入力してください。'); return; }
+
+      setAuthLoading(true, 'auth-login-btn');
+      const { error } = await sbClient.auth.signInWithPassword({ email, password });
+      setAuthLoading(false, 'auth-login-btn', 'ログイン');
+      if (error) { showAuthMsg('error', error.message); return; }
+      closeAuthModal();
+    }
+
+    // 新規登録実行
+    async function doSignup() {
+      if (!sbClient) { showAuthMsg('error', 'Supabase が設定されていません。'); return; }
+      const email    = document.getElementById('auth-signup-email').value.trim();
+      const password = document.getElementById('auth-signup-password').value;
+      if (!email || !password)    { showAuthMsg('error', 'メールアドレスとパスワードを入力してください。'); return; }
+      if (password.length < 6)    { showAuthMsg('error', 'パスワードは6文字以上にしてください。'); return; }
+
+      setAuthLoading(true, 'auth-signup-btn');
+      const { error } = await sbClient.auth.signUp({ email, password });
+      setAuthLoading(false, 'auth-signup-btn', '新規登録');
+      if (error) { showAuthMsg('error', error.message); return; }
+      showAuthMsg('success', '確認メールを送信しました。メール内のリンクをクリックするとログインできます。');
+    }
+
+    // ログアウト実行
+    async function doLogout() {
+      if (!sbClient) return;
+      await sbClient.auth.signOut();
+      // signOut 後に onAuthStateChange が SIGNED_OUT で発火して updateAuthUI() が呼ばれる
+    }
+
+    // モーダルメッセージ表示
+    function showAuthMsg(type, text) {
+      const el = document.getElementById('auth-msg');
+      el.className     = 'auth-msg ' + type;
+      el.textContent   = text;
+      el.style.display = 'block';
+    }
+    function clearAuthMsg() {
+      const el = document.getElementById('auth-msg');
+      if (el) el.style.display = 'none';
+    }
+
+    // 送信ボタンのロード状態切り替え
+    function setAuthLoading(loading, btnId, label) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      btn.disabled    = loading;
+      btn.textContent = loading ? '処理中...' : label || btn.textContent;
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  共通：API ヘッダー取得
+    // ════════════════════════════════════════════════════════
+
+    // Supabase ログイン済みなら Authorization ヘッダーを付与する
+    function buildApiHeaders() {
+      const headers = { 'content-type': 'application/json' };
+      if (sbSession && sbSession.access_token) {
+        headers['Authorization'] = 'Bearer ' + sbSession.access_token;
+      }
+      return headers;
+    }
+
+    // アクセスコード入力値を返す（未入力時は空文字）
+    function getAccessCode() {
+      return (document.getElementById('access-code').value || '').trim();
+    }
+
+    // 認証が通る状態かどうかを確認する（UI 上のバリデーション用）
+    function hasAuth() {
+      return !!sbSession || !!getAccessCode();
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  共通初期化
+    // ════════════════════════════════════════════════════════
+
     window.addEventListener('DOMContentLoaded', function() {
-      // localStorageに保存済みのアクセスコードがあれば入力欄に復元する
+      // localStorage に保存済みのアクセスコードを復元する
       const saved = localStorage.getItem('accessCode');
       if (saved) document.getElementById('access-code').value = saved;
-      // 初期状態（全国）のサンプルボタンを生成する
+      // 初期サンプルボタンを生成する
       updateSampleButtons();
+      // Supabase を初期化する（非同期・失敗しても続行）
+      initSupabase();
     });
 
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
     //  タブ切り替え
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
 
-    // タブを切り替える関数（mode: 'search' | 'training'）
     function switchTab(mode) {
-      // 各モードの表示・非表示を切り替える
       document.getElementById('search-mode').style.display   = mode === 'search'   ? 'block' : 'none';
       document.getElementById('training-mode').style.display = mode === 'training' ? 'block' : 'none';
-      // アクティブなタブボタンのスタイルを更新する
       document.querySelectorAll('.tab-btn').forEach(function(btn) {
         btn.classList.toggle('active', btn.dataset.tab === mode);
       });
-      // 研修モードに切り替えたときは学習記録を再描画する
       if (mode === 'training') renderRecords();
     }
 
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
     //  調べるモード
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
 
-    // 地域ごとのサンプル単語（キー：地域の値、値：単語配列）
     const SAMPLE_WORDS = {
-      // 全国（デフォルト）
-      '': ['なんくるないさ', 'じゃけん', 'したらば', 'ばってん', 'でんがな'],
-      // 伊予弁（愛媛県）
+      '':             ['なんくるないさ', 'じゃけん', 'したらば', 'ばってん', 'でんがな'],
       '伊予弁（愛媛県）': ['ほいじゃ', 'いかん', 'おえん', 'はまる', 'ちごう'],
     };
 
-    // 地域選択が変わったときにサンプルボタンを更新する関数
     function updateSampleButtons() {
       const regionValue = document.getElementById('region-select').value;
       const row = document.getElementById('sample-buttons-row');
-      // 既存ボタンをすべて削除してリセットする
       row.innerHTML = '';
-      // 選択地域の単語があればそれを、なければ全国の単語を使う
       const words = SAMPLE_WORDS[regionValue] || SAMPLE_WORDS[''];
-      // 各単語のボタンを生成してコンテナに追加する
       words.forEach(function(word) {
         const btn = document.createElement('button');
         btn.className = 'sample-btn';
         btn.textContent = word;
-        // クリック時：入力欄に単語をセットしてフォーカスを移す
         btn.addEventListener('click', function() {
           document.getElementById('dialect-input').value = word;
           document.getElementById('dialect-input').focus();
@@ -675,39 +1088,27 @@
       });
     }
 
-    // 「調べる」ボタンが押されたときのメイン処理関数
     async function searchDialect() {
-      // 入力値を取得してトリムする
       const dialect     = document.getElementById('dialect-input').value.trim();
       const regionValue = document.getElementById('region-select').value;
-      const accessCode  = document.getElementById('access-code').value.trim();
 
-      // 入力チェック：方言が未入力の場合はエラーを表示して中断する
       if (!dialect) { showError('方言または単語を入力してください。'); return; }
-      // 入力チェック：アクセスコードが未入力の場合はエラーを表示して中断する
-      if (!accessCode) { showError('アクセスコードを入力してください。'); return; }
+      if (!hasAuth()) { showError('アクセスコードを入力するか、ログインしてください。'); return; }
 
-      // UIをリセットしてローディングを開始する
       hideError();
       showLoading(true);
       setButtonState(false);
       document.getElementById('result-area').style.display = 'none';
 
       try {
-        // /api/lookup に POSTする（APIキーはサーバー側で管理）
         const response = await fetch('/api/lookup', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ dialect, region: regionValue, accessCode }),
+          headers: buildApiHeaders(),
+          body: JSON.stringify({ dialect, region: regionValue, accessCode: getAccessCode() }),
         });
-
         const data = await response.json();
-        // HTTPエラーの場合はサーバーのエラーメッセージで例外を投げる
-        if (!response.ok) throw new Error(data.error || `エラー: ${response.status}`);
-
-        // サーバーから返ってきたパース済みオブジェクトをUIに反映する
-        displayResult(data, dialect);
-
+        if (!response.ok) throw new Error(data.error || 'エラー: ' + response.status);
+        displayResult(data);
       } catch (err) {
         showError('エラーが発生しました：' + err.message);
       } finally {
@@ -716,31 +1117,23 @@
       }
     }
 
-    // 結果をUIに描画する関数
-    function displayResult(result, inputDialect) {
-      // 地域情報をバッジ形式で表示する
+    function displayResult(result) {
       document.getElementById('result-region').innerHTML =
-        `<span class="region-badge">${escapeHtml(result.region || '不明')}</span>`;
-      // 読み方（ふりがな）を大きめのテキストで表示する
+        '<span class="region-badge">' + escapeHtml(result.region || '不明') + '</span>';
       document.getElementById('result-reading').innerHTML =
-        `<span class="reading-text">${escapeHtml(result.reading || '—')}</span>`;
-      // 標準語の意味を表示する
+        '<span class="reading-text">' + escapeHtml(result.reading || '—') + '</span>';
       document.getElementById('result-meaning').textContent = result.meaning || '情報なし';
-      // ニュアンスを表示する
       document.getElementById('result-nuance').textContent  = result.nuance  || '情報なし';
 
-      // 例文セクションを構築して表示する
       const examplesEl = document.getElementById('result-examples');
-      examplesEl.innerHTML = ''; // 以前の例文をクリアする
+      examplesEl.innerHTML = '';
       if (Array.isArray(result.examples) && result.examples.length > 0) {
         result.examples.forEach(function(ex, idx) {
           const block = document.createElement('div');
           block.className = 'example-block';
-          block.innerHTML = `
-            <p class="dialect-line">【方言】${escapeHtml(ex.dialect || '')}</p>
-            <p class="standard-line">【標準語】${escapeHtml(ex.standard || '')}</p>
-          `;
-          // 2件目以降は上マージンを追加する
+          block.innerHTML =
+            '<p class="dialect-line">【方言】' + escapeHtml(ex.dialect || '') + '</p>' +
+            '<p class="standard-line">【標準語】' + escapeHtml(ex.standard || '') + '</p>';
           if (idx > 0) block.style.marginTop = '10px';
           examplesEl.appendChild(block);
         });
@@ -748,407 +1141,374 @@
         examplesEl.textContent = '例文がありませんでした。';
       }
 
-      // アナウンサーへのポイントを黒ブロックで表示する
       const announcerEl = document.getElementById('result-announcer-points');
       announcerEl.innerHTML = '';
       const ap = result.announcer_points;
       if (ap) {
         const apBlock = document.createElement('div');
         apBlock.className = 'announcer-block';
-        apBlock.innerHTML = `
-          <div class="point-label">放送での使用可否</div>
-          <div class="point-value">${escapeHtml(ap.broadcast_use        || '情報なし')}</div>
-          <div class="point-label">取材先で聞いた時の対応</div>
-          <div class="point-value">${escapeHtml(ap.interview_response   || '情報なし')}</div>
-          <div class="point-label">発音の注意点</div>
-          <div class="point-value">${escapeHtml(ap.pronunciation        || '情報なし')}</div>
-        `;
+        apBlock.innerHTML =
+          '<div class="point-label">放送での使用可否</div>' +
+          '<div class="point-value">' + escapeHtml(ap.broadcast_use      || '情報なし') + '</div>' +
+          '<div class="point-label">取材先で聞いた時の対応</div>' +
+          '<div class="point-value">' + escapeHtml(ap.interview_response || '情報なし') + '</div>' +
+          '<div class="point-label">発音の注意点</div>' +
+          '<div class="point-value">' + escapeHtml(ap.pronunciation      || '情報なし') + '</div>';
         announcerEl.appendChild(apBlock);
       } else {
         announcerEl.textContent = '情報がありませんでした。';
       }
 
-      // 結果エリアをフェードインで表示する
       const resultArea = document.getElementById('result-area');
       resultArea.style.display    = 'block';
       resultArea.style.opacity    = '0';
       resultArea.style.transition = 'opacity 0.3s ease';
       requestAnimationFrame(function() { resultArea.style.opacity = '1'; });
-      // 結果エリアまでスムーズスクロールする
       resultArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // ローディングの表示切り替え
-    function showLoading(visible) { document.getElementById('loading').style.display = visible ? 'block' : 'none'; }
-
-    // 調べるボタンの有効・無効切り替え
-    function setButtonState(enabled) {
+    function showLoading(v)    { document.getElementById('loading').style.display = v ? 'block' : 'none'; }
+    function setButtonState(e) {
       const btn = document.getElementById('search-btn');
-      btn.disabled    = !enabled;
-      btn.textContent = enabled ? '調べる' : '分析中...';
+      btn.disabled = !e; btn.textContent = e ? '調べる' : '分析中...';
     }
-
-    // エラーメッセージを表示する
-    function showError(message) {
+    function showError(msg) {
       const el = document.getElementById('error-msg');
-      el.textContent  = '⚠ ' + message;
-      el.style.display = 'block';
+      el.textContent = '⚠ ' + msg; el.style.display = 'block';
     }
-
-    // エラーメッセージを非表示にする
     function hideError() { document.getElementById('error-msg').style.display = 'none'; }
 
-    // Ctrl+Enter / Cmd+Enter で調べるボタンを発動する
     document.getElementById('dialect-input').addEventListener('keydown', function(e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') searchDialect();
     });
 
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
     //  研修モード：クイズ状態管理
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
 
-    // クイズ状態管理オブジェクト（null = 研修中でない）
     let quizState = null;
 
-    // 研修を開始する関数
     async function startQuiz() {
-      // アクセスコードを確認する
-      const accessCode = document.getElementById('access-code').value.trim();
-      if (!accessCode) {
-        // 未入力の場合は調べるモードへ誘導してエラーを表示する
-        switchTab('search');
-        showError('アクセスコードを入力してください。');
+      if (!hasAuth()) {
+        showQuizError('アクセスコードを入力するか、ログインしてください。');
         return;
       }
-
-      // セレクトから地域と出題数を取得する
       const region = document.getElementById('quiz-region').value;
       const total  = parseInt(document.getElementById('quiz-count').value, 10);
-
-      // クイズ状態を初期化する
       quizState = {
-        region,                // 選択地域（空文字 = 全国）
-        totalQuestions: total, // 合計問題数
-        currentIndex: 0,       // 現在の問題インデックス（0始まり）
-        usedWords: [],         // 出題済み単語のリスト（重複防止）
-        answers: [],           // 各問の回答・採点結果の記録
-        currentQuestion: null, // 現在表示中の問題データ
+        region,
+        totalQuestions: total,
+        currentIndex:   0,
+        usedWords:      [],
+        answers:        [],
+        currentQuestion: null,
       };
-
-      // ローディングを表示して最初の問題を生成する
       clearQuizError();
       showQuizPhase('loading');
       updateQuizLoadingText('問題を生成中...');
       await loadNextQuestion();
     }
 
-    // 次の問題を /api/quiz から取得する関数
     async function loadNextQuestion() {
-      const accessCode = document.getElementById('access-code').value.trim();
       try {
-        // generate アクション：地域と出題済みリストを渡して新しい問題を1問生成する
         const res = await fetch('/api/quiz', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: buildApiHeaders(),
           body: JSON.stringify({
-            action:    'generate',
-            region:    quizState.region,
-            usedWords: quizState.usedWords, // 重複回避リストを送る
-            accessCode,
+            action:     'generate',
+            region:     quizState.region,
+            usedWords:  quizState.usedWords,
+            accessCode: getAccessCode(),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'APIエラー');
-
-        // 生成された問題をstateに保存し、使用済みリストに追加する
         quizState.currentQuestion = data;
         quizState.usedWords.push(data.word);
-
-        // 問題表示画面に切り替える
         showQuestion();
-
       } catch (err) {
-        // エラー時はセットアップ画面に戻してメッセージを表示する
         showQuizPhase('setup');
         showQuizError(err.message);
       }
     }
 
-    // 問題表示画面を更新して表示する関数
     function showQuestion() {
       const q   = quizState.currentQuestion;
       const num = quizState.currentIndex + 1;
       const tot = quizState.totalQuestions;
-
-      // 進捗バーの幅を更新する（問題開始前の割合）
-      document.getElementById('quiz-progress-fill').style.width  = ((num - 1) / tot * 100) + '%';
-      document.getElementById('quiz-progress-text').textContent  = `問題 ${num} / ${tot}`;
-
-      // 問題データを各表示要素にセットする
-      document.getElementById('quiz-region-label').textContent   = q.region   || '';
-      document.getElementById('quiz-word').textContent           = q.word     || '';
-      document.getElementById('quiz-question-text').textContent  = q.question || '';
-
-      // 回答入力欄をクリアする
+      document.getElementById('quiz-progress-fill').style.width = ((num - 1) / tot * 100) + '%';
+      document.getElementById('quiz-progress-text').textContent = '問題 ' + num + ' / ' + tot;
+      document.getElementById('quiz-region-label').textContent  = q.region   || '';
+      document.getElementById('quiz-word').textContent          = q.word     || '';
+      document.getElementById('quiz-question-text').textContent = q.question || '';
       document.getElementById('quiz-answer-input').value = '';
-
-      // 問題表示画面に切り替えてからフォーカスを当てる
       showQuizPhase('question');
       setTimeout(function() { document.getElementById('quiz-answer-input').focus(); }, 80);
     }
 
-    // 回答を送信して採点を依頼する関数
     async function submitAnswer() {
       const answer = document.getElementById('quiz-answer-input').value.trim();
-      // 空欄の場合は何もしない
       if (!answer) return;
-
-      const accessCode = document.getElementById('access-code').value.trim();
-
-      // ローディングに切り替えてボタンを無効化する
       document.getElementById('quiz-submit-btn').disabled = true;
       showQuizPhase('loading');
       updateQuizLoadingText('採点中...');
-
       try {
-        // grade アクション：出題内容とユーザー回答を渡して採点・解説を取得する
         const res = await fetch('/api/quiz', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: buildApiHeaders(),
           body: JSON.stringify({
             action:     'grade',
             word:       quizState.currentQuestion.word,
             question:   quizState.currentQuestion.question,
-            userAnswer: answer, // ユーザーが入力した回答
-            accessCode,
+            userAnswer: answer,
+            accessCode: getAccessCode(),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'APIエラー');
-
-        // 回答と採点結果をstateに記録する
         quizState.answers.push({
-          word:          quizState.currentQuestion.word,
-          region:        quizState.currentQuestion.region,
-          question:      quizState.currentQuestion.question,
-          userAnswer:    answer,
-          result:        data.result,
+          word:           quizState.currentQuestion.word,
+          region:         quizState.currentQuestion.region,
+          question:       quizState.currentQuestion.question,
+          userAnswer:     answer,
+          result:         data.result,
           correctMeaning: data.correctMeaning,
-          explanation:   data.explanation,
-          announcerTips: data.announcerTips,
+          explanation:    data.explanation,
+          announcerTips:  data.announcerTips,
         });
-
-        // 採点結果画面を表示する
         showGrade(data, answer);
-
       } catch (err) {
-        // エラー時は問題画面に戻してメッセージを表示する
         showQuizPhase('question');
         document.getElementById('quiz-submit-btn').disabled = false;
         showQuizError(err.message);
       }
     }
 
-    // 採点結果画面を表示する関数
     function showGrade(grade, userAnswer) {
-      // 採点結果ごとのラベルとCSSクラス
       const cfg = {
         correct:   { label: '○  正解',   cls: 'grade-correct'   },
         close:     { label: '△  惜しい', cls: 'grade-close'     },
         incorrect: { label: '×  不正解', cls: 'grade-incorrect' },
       };
       const c = cfg[grade.result] || cfg.incorrect;
-
-      // 採点バッジのテキストとスタイルを設定する
       const badge = document.getElementById('grade-badge');
       badge.textContent = c.label;
       badge.className   = 'grade-badge ' + c.cls;
-
-      // あなたの回答・正しい意味・解説を各要素にセットする
-      document.getElementById('grade-user-answer').textContent    = `「${userAnswer}」`;
+      document.getElementById('grade-user-answer').textContent     = '「' + userAnswer + '」';
       document.getElementById('grade-correct-meaning').textContent = grade.correctMeaning || '情報なし';
       document.getElementById('grade-explanation').textContent     = grade.explanation    || '情報なし';
-
-      // アナウンサーの注意点を黒ブロックで表示する（調べるモードと同スタイル）
       const tipsEl = document.getElementById('grade-announcer-tips');
       tipsEl.innerHTML = '';
       if (grade.announcerTips) {
         const block = document.createElement('div');
         block.className = 'announcer-block';
-        block.innerHTML = `<div class="point-value">${escapeHtml(grade.announcerTips)}</div>`;
+        block.innerHTML = '<div class="point-value">' + escapeHtml(grade.announcerTips) + '</div>';
         tipsEl.appendChild(block);
       } else {
         tipsEl.textContent = '情報なし';
       }
-
-      // 最後の問題かどうかでボタンラベルを切り替える
       const isLast = quizState.currentIndex + 1 >= quizState.totalQuestions;
       document.getElementById('grade-next-btn').textContent = isLast ? '結果を見る' : '次の問題へ';
-
       showQuizPhase('grade');
     }
 
-    // 「次の問題へ」または「結果を見る」ボタンの処理
     function nextQuestion() {
-      // 問題インデックスを進める
       quizState.currentIndex++;
-      // 全問終了の場合は最終結果画面を表示する
       if (quizState.currentIndex >= quizState.totalQuestions) {
         showFinish();
         return;
       }
-      // 次の問題を生成する
       showQuizPhase('loading');
       updateQuizLoadingText('問題を生成中...');
       loadNextQuestion();
     }
 
-    // 最終結果画面を表示する関数
-    function showFinish() {
+    async function showFinish() {
       const answers      = quizState.answers;
-      // 正解数と正答率を集計する
       const correctCount = answers.filter(function(a) { return a.result === 'correct'; }).length;
       const total        = answers.length;
       const score        = total > 0 ? Math.round(correctCount / total * 100) : 0;
 
-      // スコアを大きく表示する
-      document.getElementById('finish-score').textContent = `${correctCount} / ${total}`;
-      document.getElementById('finish-rate').textContent  = `正答率 ${score}%`;
+      document.getElementById('finish-score').textContent = correctCount + ' / ' + total;
+      document.getElementById('finish-rate').textContent  = '正答率 ' + score + '%';
 
-      // 振り返りリストを生成する
       const reviewEl = document.getElementById('finish-review');
       reviewEl.innerHTML = '';
       answers.forEach(function(a, i) {
-        const item      = document.createElement('div');
-        item.className  = 'review-item';
-        // 採点結果に応じたミニバッジのラベルを設定する
-        const miniLabel = a.result === 'correct'
-          ? '○ 正解' : a.result === 'close' ? '△ 惜しい' : '× 不正解';
-        item.innerHTML = `
-          <div class="review-num">Q${i + 1}</div>
-          <div class="review-content">
-            <div class="review-word">${escapeHtml(a.word)}</div>
-            <div class="review-meta">
-              <span class="grade-mini grade-${a.result}">${miniLabel}</span>
-              <span class="review-region">${escapeHtml(a.region || '')}</span>
-            </div>
-            <div class="review-meaning">${escapeHtml(a.correctMeaning || '')}</div>
-          </div>
-        `;
+        const item = document.createElement('div');
+        item.className = 'review-item';
+        const miniLabel = a.result === 'correct' ? '○ 正解' : a.result === 'close' ? '△ 惜しい' : '× 不正解';
+        item.innerHTML =
+          '<div class="review-num">Q' + (i + 1) + '</div>' +
+          '<div class="review-content">' +
+            '<div class="review-word">'    + escapeHtml(a.word)                + '</div>' +
+            '<div class="review-meta">' +
+              '<span class="grade-mini grade-' + a.result + '">' + miniLabel + '</span>' +
+              '<span class="review-region">' + escapeHtml(a.region || '') + '</span>' +
+            '</div>' +
+            '<div class="review-meaning">' + escapeHtml(a.correctMeaning || '') + '</div>' +
+          '</div>';
         reviewEl.appendChild(item);
       });
 
-      // 学習記録を保存して記録一覧を更新する
-      saveRecord({
+      // 最終結果を先に表示して、保存は非同期で行う
+      showQuizPhase('finish');
+
+      await saveRecord({
         date:           new Date().toLocaleDateString('ja-JP'),
         region:         quizState.region || '全国',
         totalQuestions: total,
         correctCount,
         score,
+        details:        answers,  // Supabase の jsonb カラムに保存する
       });
       renderRecords();
-
-      showQuizPhase('finish');
     }
 
-    // クイズをリセットしてセットアップ画面に戻る関数
     function resetQuiz() {
       quizState = null;
       clearQuizError();
       showQuizPhase('setup');
     }
 
-    // 指定フェーズのみを表示し他を非表示にする関数
     function showQuizPhase(phase) {
-      // 管理対象の全フェーズ
       ['setup', 'loading', 'question', 'grade', 'finish'].forEach(function(p) {
         const el = document.getElementById('quiz-' + p);
         if (el) el.style.display = p === phase ? 'block' : 'none';
       });
-      // 回答ボタンを再有効化する（採点後に無効化されているため）
       const submitBtn = document.getElementById('quiz-submit-btn');
       if (submitBtn) submitBtn.disabled = false;
     }
 
-    // クイズのローディングテキストを動的に更新する関数
     function updateQuizLoadingText(text) {
       const el = document.getElementById('quiz-loading-text');
       if (el) el.textContent = text;
     }
 
-    // クイズ内エラーメッセージを表示する関数
-    function showQuizError(message) {
+    function showQuizError(msg) {
       const el = document.getElementById('quiz-error-msg');
       if (!el) return;
-      el.textContent   = '⚠ ' + message;
-      el.style.display = 'block';
+      el.textContent = '⚠ ' + msg; el.style.display = 'block';
     }
-
-    // クイズ内エラーメッセージを非表示にする関数
     function clearQuizError() {
       const el = document.getElementById('quiz-error-msg');
       if (el) el.style.display = 'none';
     }
 
-    // ════════════════════════════════════════════════════
-    //  学習記録（localStorage）
-    // ════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════
+    //  学習記録：クラウド（Supabase）or localStorage 振り分け
+    // ════════════════════════════════════════════════════════
 
-    // 学習記録をlocalStorageに保存する関数（最大20件）
-    // 将来アカウント機能へ移行する際はこの関数のみ差し替えればよい
-    function saveRecord(record) {
-      const records = loadRecords();
-      // 新しい記録を先頭に追加する
+    // 記録を保存する（ログイン時→Supabase / 未ログイン時→localStorage）
+    async function saveRecord(record) {
+      if (sbClient && sbUser) {
+        // Supabase の training_records テーブルに INSERT する
+        const { error } = await sbClient.from('training_records').insert([{
+          user_id:       sbUser.id,
+          region:        record.region,
+          question_count: record.totalQuestions,
+          correct_count:  record.correctCount,
+          details:        record.details || null,
+        }]);
+        if (error) {
+          console.error('Supabase 保存エラー:', error.message);
+          // Supabase 保存失敗時は localStorage にフォールバックして記録を失わない
+          saveLocalRecord(record);
+        }
+        return;
+      }
+      saveLocalRecord(record);
+    }
+
+    // localStorage に記録を保存する（最大20件）
+    function saveLocalRecord(record) {
+      const records = loadLocalRecords();
       records.unshift(record);
-      // 20件を超えた古い記録を削除する
       if (records.length > 20) records.length = 20;
       localStorage.setItem('quizRecords', JSON.stringify(records));
     }
 
-    // localStorageから学習記録を読み出す関数
-    // 将来アカウント機能へ移行する際はこの関数のみ差し替えればよい
-    function loadRecords() {
+    // localStorage から記録を読み出す
+    function loadLocalRecords() {
       try {
-        // パース失敗時は空配列を返す
         return JSON.parse(localStorage.getItem('quizRecords') || '[]');
-      } catch {
-        return [];
-      }
+      } catch { return []; }
     }
 
-    // 学習記録を画面の「#records-list」に一覧表示する関数
-    function renderRecords() {
+    // 記録を読み出す（ログイン時→Supabase / 未ログイン時→localStorage）
+    async function loadRecords() {
+      if (sbClient && sbUser) {
+        const { data, error } = await sbClient
+          .from('training_records')
+          .select('id, created_at, region, question_count, correct_count')
+          .order('created_at', { ascending: false })
+          .limit(20);
+        if (error || !data) return loadLocalRecords(); // Supabase失敗時はローカルにフォールバック
+        return data.map(function(r) {
+          return {
+            date:           new Date(r.created_at).toLocaleDateString('ja-JP'),
+            region:         r.region,
+            totalQuestions: r.question_count,
+            correctCount:   r.correct_count,
+            score:          r.question_count > 0 ? Math.round(r.correct_count / r.question_count * 100) : 0,
+          };
+        });
+      }
+      return loadLocalRecords();
+    }
+
+    // 学習記録を画面に描画する（非同期）
+    async function renderRecords() {
       const el = document.getElementById('records-list');
       if (!el) return;
-      const records = loadRecords();
-
-      // 記録がない場合は空状態メッセージを表示する
+      el.innerHTML = '<p class="records-empty">読み込み中...</p>';
+      const records = await loadRecords();
       if (records.length === 0) {
         el.innerHTML = '<p class="records-empty">まだ記録がありません</p>';
         return;
       }
-
-      // 最新10件を表示する（11件目以降は省略）
       el.innerHTML = '';
       records.slice(0, 10).forEach(function(r) {
-        const item      = document.createElement('div');
-        item.className  = 'record-item';
-        item.innerHTML  = `
-          <div class="record-date">${escapeHtml(String(r.date))}</div>
-          <div class="record-info">${escapeHtml(r.region)} · ${r.totalQuestions}問</div>
-          <div class="record-score">${r.correctCount}/${r.totalQuestions}<span class="record-rate">${r.score}%</span></div>
-        `;
+        const item = document.createElement('div');
+        item.className = 'record-item';
+        item.innerHTML =
+          '<div class="record-date">' + escapeHtml(String(r.date)) + '</div>' +
+          '<div class="record-info">'  + escapeHtml(r.region) + ' · ' + r.totalQuestions + '問</div>' +
+          '<div class="record-score">' + r.correctCount + '/' + r.totalQuestions +
+            '<span class="record-rate">' + r.score + '%</span></div>';
         el.appendChild(item);
       });
     }
 
-    // ════════════════════════════════════════════════════
-    //  共通ユーティリティ
-    // ════════════════════════════════════════════════════
+    // 初回ログイン時に localStorage の記録を Supabase へ移行する
+    async function migrateLocalToCloud() {
+      if (!sbClient || !sbUser) return;
+      const local = loadLocalRecords();
+      if (local.length === 0) return;
 
-    // XSS対策のためHTMLエスケープを行うユーティリティ関数
+      const rows = local.map(function(r) {
+        return {
+          user_id:        sbUser.id,
+          region:         r.region        || '全国',
+          question_count: r.totalQuestions || r.question_count || 5,
+          correct_count:  r.correctCount   || r.correct_count  || 0,
+          details:        r.details        || null,
+        };
+      });
+
+      const { error } = await sbClient.from('training_records').insert(rows);
+      if (!error) {
+        // 移行成功後は localStorage を削除する
+        localStorage.removeItem('quizRecords');
+        console.log(rows.length + '件の記録をクラウドに移行しました。');
+      }
+    }
+
+    // ════════════════════════════════════════════════════════
+    //  共通ユーティリティ
+    // ════════════════════════════════════════════════════════
+
     function escapeHtml(str) {
-      // テキストノードとして設定することでブラウザに安全なエスケープをさせる
       const div = document.createElement('div');
       div.appendChild(document.createTextNode(str));
       return div.innerHTML;

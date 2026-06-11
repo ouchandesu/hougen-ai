@@ -1,6 +1,7 @@
 // Vercelサーバーレス関数：Anthropic APIをサーバーサイドで安全に呼び出す
-// APIキーはこのファイルに書かず、Vercel環境変数 ANTHROPIC_API_KEY から読む
-// アクセスコードは環境変数 ACCESS_CODE と照合して認証する
+// 認証：Supabaseセッショントークン（Authorization: Bearer）または ACCESS_CODE のどちらかを受け付ける
+
+const { verifyAuth } = require('./_auth');
 
 module.exports = async function handler(req, res) {
   // POST以外のリクエストメソッドは受け付けない
@@ -8,41 +9,31 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // リクエストボディから各パラメータを取り出す
-  const { dialect, region, accessCode } = req.body;
-
-  // ── アクセスコード認証 ──────────────────────────────
-  // 環境変数から正規アクセスコードを取得する
-  const validCode = process.env.ACCESS_CODE;
-  // ACCESS_CODE が未設定の場合はサーバー設定不備としてエラーを返す
-  if (!validCode) {
-    return res.status(500).json({ error: 'サーバー設定エラー：ACCESS_CODE が設定されていません' });
-  }
-  // 送られてきたコードが一致しない場合は 401 を返す
-  if (accessCode !== validCode) {
-    return res.status(401).json({ error: 'アクセスコードが正しくありません' });
+  // ── 認証：Supabaseトークン or ACCESS_CODE ───────────────
+  const auth = await verifyAuth(req);
+  if (!auth.ok) {
+    return res.status(401).json({ error: 'アクセスコードが正しくないか、ログインが必要です' });
   }
 
-  // ── 入力バリデーション ────────────────────────────
-  // 方言が空文字・未入力の場合は 400 を返す
+  // リクエストボディから方言・地域を取得する（accessCode は _auth.js が消費済み）
+  const { dialect, region } = req.body;
+
+  // ── 入力バリデーション ────────────────────────────────
   if (!dialect || !dialect.trim()) {
     return res.status(400).json({ error: '方言または単語を入力してください' });
   }
 
-  // ── APIキーの取得 ────────────────────────────────
-  // 環境変数 ANTHROPIC_API_KEY を読む（フロントには一切渡さない）
+  // ── APIキーの取得 ────────────────────────────────────
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'サーバー設定エラー：ANTHROPIC_API_KEY が設定されていません' });
   }
 
-  // ── プロンプト構築 ───────────────────────────────
-  // 地域が指定されている場合はプロンプトに地域ヒントを追加する
+  // ── プロンプト構築 ───────────────────────────────────
   const regionHint = region
     ? `\nこの単語・表現は「${region}」に関連している可能性があります。その地域の方言として優先的に解釈してください。`
     : '';
 
-  // Claudeに送るプロンプト本文を組み立てる
   const prompt = `あなたは日本の方言の専門家です。以下の方言または単語について、アナウンサーが学習するために必要な情報を教えてください。${regionHint}
 
 方言・単語：「${dialect.trim()}」
@@ -73,27 +64,22 @@ module.exports = async function handler(req, res) {
 
 もし有名な方言でない、または意味が不明な場合は、region に「不明」、meaning に「この言葉は一般的な方言として確認できませんでした」と入力してください。`;
 
-  // ── Anthropic API呼び出し ─────────────────────
+  // ── Anthropic API呼び出し ─────────────────────────────
   try {
-    // fetch はNode.js 18以降でネイティブ利用可能（package.json で明示）
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        // サーバー側でAPIキーをセットするため危険なブラウザ直接アクセスヘッダーは不要
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        // 使用するClaudeモデル
         model: 'claude-sonnet-4-6',
-        // レスポンスの最大トークン数
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
 
-    // Anthropic API がエラーを返した場合はそのステータスとメッセージを転送する
     if (!anthropicRes.ok) {
       const errData = await anthropicRes.json().catch(() => ({}));
       return res.status(anthropicRes.status).json({
@@ -101,27 +87,20 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 正常レスポンスをJSONとして取得する
-    const data = await anthropicRes.json();
-    // レスポンス本文のテキスト部分を取り出す
+    const data    = await anthropicRes.json();
     const rawText = data.content?.[0]?.text || '';
 
-    // ── JSONパース ──────────────────────────────
-    // コードブロック記号（```json...```）を除去する
+    // ── JSONパース（コードブロック除去＋正規表現フォールバック）──
     let cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    // 波括弧で始まらない場合は正規表現でJSONブロックを抽出する（前後に説明文が混入した場合の対策）
     if (!cleaned.startsWith('{')) {
       const match = cleaned.match(/\{[\s\S]*\}/);
       cleaned = match ? match[0] : cleaned;
     }
-    // 抽出したテキストをJSONとしてパースする
-    const result = JSON.parse(cleaned);
 
-    // パース済みオブジェクトをフロントエンドに返す
+    const result = JSON.parse(cleaned);
     return res.status(200).json(result);
 
   } catch (err) {
-    // 通信エラー・パースエラーを 500 として返す
     return res.status(500).json({ error: 'サーバーエラー：' + err.message });
   }
 };
