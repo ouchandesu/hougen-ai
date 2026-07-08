@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>方言ナビ - アナウンサー向け方言学習ツール</title>
+  <title>伊予弁ナビ - アナウンサー向け伊予弁学習ツール</title>       <!-- ブラウザタブに表示するタイトル（伊予弁特化） -->
   <style>
     /* ── CSS変数 ────────────────────────────────────────── */
     :root {
@@ -586,9 +586,9 @@
   <header>
     <!-- 右上の認証バー（JS で更新される） -->
     <div class="header-auth" id="header-auth"></div>
-    <div class="tagline">Announcer's Learning Tool</div>
-    <h1>方言ナビ</h1>
-    <p class="subtitle">日本各地の方言をプロの視点で学ぶ</p>
+    <div class="tagline">Announcer's Learning Tool</div>              <!-- 英語サブタグ（英字ロゴ的な小見出し） -->
+    <h1>伊予弁ナビ</h1>                                                 <!-- メインタイトル（伊予弁に特化） -->
+    <p class="subtitle">愛媛県の伊予弁をプロの視点で学ぶ</p>            <!-- サブタイトル（対象を伊予弁に限定） -->
   </header>
 
   <!-- ── 認証モーダル ────────────────────────────────────── -->
@@ -664,27 +664,23 @@
     <div id="search-mode">
 
       <div class="card">
-        <h2>方言・単語を入力</h2>
+        <h2>伊予弁・単語を入力</h2>                                    <!-- 伊予弁固定の入力カード見出し -->
 
-        <label class="field-label" for="region-select">地域</label>
-        <select id="region-select" onchange="updateSampleButtons()">
-          <option value="">全国（デフォルト）</option>
-          <option value="伊予弁（愛媛県）">伊予弁（愛媛県）</option>
-          <option value="関西弁">関西弁</option>
-          <option value="博多弁">博多弁</option>
-          <option value="津軽弁">津軽弁</option>
-          <option value="沖縄弁">沖縄弁</option>
-        </select>
+        <!-- 地域選択は廃止し、伊予弁（愛媛県）に固定表示する -->
+        <div class="field-label">地域</div>                            <!-- 地域ラベル（表示のみ） -->
+        <div style="margin-bottom:20px">                              <!-- 固定地域バッジの表示エリア -->
+          <span class="region-badge">伊予弁（愛媛県）</span>          <!-- 常に伊予弁固定であることを示すバッジ -->
+        </div>
 
-        <div class="sample-buttons-area">
-          <div class="sample-buttons-label">サンプル単語</div>
-          <div class="sample-buttons-row" id="sample-buttons-row"></div>
+        <div class="sample-buttons-area">                             <!-- サンプル単語ボタンエリア -->
+          <div class="sample-buttons-label">サンプル単語</div>        <!-- サンプル単語の見出し -->
+          <div class="sample-buttons-row" id="sample-buttons-row"></div> <!-- ボタンをJSで描画するコンテナ -->
         </div>
 
         <textarea
           id="dialect-input"
-          placeholder="方言・単語を入力（例：ほやほや、なんくるないさ、ばってん…）"
-        ></textarea>
+          placeholder="伊予弁を入力してください（例：ほいじゃ）"
+        ></textarea>                                                  <!-- 伊予弁入力欄（プレースホルダーも伊予弁に変更） -->
         <button id="search-btn" onclick="searchDialect()">調べる</button>
       </div>
 
@@ -737,15 +733,11 @@
       <!-- セットアップ -->
       <div id="quiz-setup" class="card">
         <h2>研修モード設定</h2>
-        <label class="field-label" for="quiz-region">地域</label>
-        <select id="quiz-region" class="quiz-select">
-          <option value="">全国（デフォルト）</option>
-          <option value="伊予弁（愛媛県）">伊予弁（愛媛県）</option>
-          <option value="関西弁">関西弁</option>
-          <option value="博多弁">博多弁</option>
-          <option value="津軽弁">津軽弁</option>
-          <option value="沖縄弁">沖縄弁</option>
-        </select>
+        <!-- 研修モードも地域選択を廃止し、伊予弁（愛媛県）に固定する -->
+        <div class="field-label">地域</div>                            <!-- 地域ラベル（表示のみ） -->
+        <div style="margin-bottom:20px">                              <!-- 固定地域バッジの表示エリア -->
+          <span class="region-badge">伊予弁（愛媛県）</span>          <!-- 常に伊予弁固定であることを示すバッジ -->
+        </div>
         <label class="field-label" for="quiz-count">出題数</label>
         <select id="quiz-count" class="quiz-select">
           <option value="5">5問</option>
@@ -843,7 +835,7 @@
   </div><!-- /.container -->
 
   <footer>
-    <p>Powered by Claude API &nbsp;·&nbsp; 方言ナビ &copy; 2024</p>
+    <p>Powered by Claude API &nbsp;·&nbsp; 伊予弁ナビ &copy; 2024</p>  <!-- フッター表記も伊予弁ナビに変更 -->
   </footer>
 
   <!-- Supabase JS SDK（UMD版）→ window.supabase.createClient() が使える -->
@@ -1066,33 +1058,32 @@
     //  調べるモード
     // ════════════════════════════════════════════════════════
 
-    const SAMPLE_WORDS = {
-      '':             ['なんくるないさ', 'じゃけん', 'したらば', 'ばってん', 'でんがな'],
-      '伊予弁（愛媛県）': ['ほいじゃ', 'いかん', 'おえん', 'はまる', 'ちごう'],
-    };
+    // 伊予弁に固定する地域名（APIへ送る region 値としても使用する）
+    const FIXED_REGION = '伊予弁（愛媛県）';
+
+    // サンプル単語を伊予弁らしい単語に絞る
+    const SAMPLE_WORDS = ['ほいじゃ', 'いかん', 'おえん', 'だんだん', 'ぞな'];
 
     function updateSampleButtons() {
-      const regionValue = document.getElementById('region-select').value;
-      const row = document.getElementById('sample-buttons-row');
-      row.innerHTML = '';
-      const words = SAMPLE_WORDS[regionValue] || SAMPLE_WORDS[''];
-      words.forEach(function(word) {
-        const btn = document.createElement('button');
-        btn.className = 'sample-btn';
-        btn.textContent = word;
-        btn.addEventListener('click', function() {
-          document.getElementById('dialect-input').value = word;
-          document.getElementById('dialect-input').focus();
+      const row = document.getElementById('sample-buttons-row');  // サンプルボタンの描画先
+      row.innerHTML = '';                                          // 既存ボタンをクリアする
+      SAMPLE_WORDS.forEach(function(word) {                        // 伊予弁サンプル単語ごとにボタンを生成する
+        const btn = document.createElement('button');             // ボタン要素を作成する
+        btn.className = 'sample-btn';                              // サンプルボタン用のスタイルを適用する
+        btn.textContent = word;                                   // ボタンに単語を表示する
+        btn.addEventListener('click', function() {                // クリック時のハンドラを登録する
+          document.getElementById('dialect-input').value = word;  // 入力欄に単語をセットする
+          document.getElementById('dialect-input').focus();       // 入力欄にフォーカスを移す
         });
-        row.appendChild(btn);
+        row.appendChild(btn);                                     // 生成したボタンを行に追加する
       });
     }
 
     async function searchDialect() {
-      const dialect     = document.getElementById('dialect-input').value.trim();
-      const regionValue = document.getElementById('region-select').value;
+      const dialect     = document.getElementById('dialect-input').value.trim();  // 入力された伊予弁を取得する
+      const regionValue = FIXED_REGION;                                           // 地域は伊予弁に固定する
 
-      if (!dialect) { showError('方言または単語を入力してください。'); return; }
+      if (!dialect) { showError('伊予弁または単語を入力してください。'); return; }
       if (!hasAuth()) { showError('アクセスコードを入力するか、ログインしてください。'); return; }
 
       hideError();
@@ -1193,8 +1184,8 @@
         showQuizError('アクセスコードを入力するか、ログインしてください。');
         return;
       }
-      const region = document.getElementById('quiz-region').value;
-      const total  = parseInt(document.getElementById('quiz-count').value, 10);
+      const region = FIXED_REGION;                                     // 研修モードも地域を伊予弁に固定する
+      const total  = parseInt(document.getElementById('quiz-count').value, 10);  // 出題数を取得する
       quizState = {
         region,
         totalQuestions: total,
