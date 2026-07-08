@@ -320,7 +320,8 @@
     .sample-btn:active { background: var(--gray-800); color: var(--white); }
 
     /* ── テキストエリア ────────────────────────────────── */
-    #dialect-input {
+    /* 調べるモードと変換モードで共通のテキストエリアスタイル */
+    #dialect-input, #convert-input {
       width: 100%;
       height: 110px;
       padding: 12px 14px;
@@ -334,10 +335,10 @@
       color: var(--black);
       transition: border-color 0.15s, background 0.15s;
     }
-    #dialect-input:focus { outline: none; border-color: var(--black); background: var(--white); }
+    #dialect-input:focus, #convert-input:focus { outline: none; border-color: var(--black); background: var(--white); }
 
-    /* ── 調べるボタン ──────────────────────────────────── */
-    #search-btn {
+    /* ── 調べるボタン・変換ボタン（共通） ──────────────── */
+    #search-btn, #convert-btn {
       display: block;
       width: 100%;
       margin-top: 14px;
@@ -354,13 +355,14 @@
       cursor: pointer;
       transition: background 0.15s;
     }
-    #search-btn:hover    { background: var(--gray-800); }
-    #search-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
+    #search-btn:hover,    #convert-btn:hover    { background: var(--gray-800); }
+    #search-btn:disabled, #convert-btn:disabled { background: var(--gray-400); cursor: not-allowed; }
 
     /* ── ローディング共通 ──────────────────────────────── */
     @keyframes spin { to { transform: rotate(360deg); } }
-    #loading { display: none; text-align: center; padding: 44px; color: var(--gray-600); }
-    #loading .spinner {
+    /* 調べるモードと変換モードで共通のローディング表示 */
+    #loading, #convert-loading { display: none; text-align: center; padding: 44px; color: var(--gray-600); }
+    #loading .spinner, #convert-loading .spinner {
       display: inline-block;
       width: 22px;
       height: 22px;
@@ -370,10 +372,10 @@
       animation: spin 0.65s linear infinite;
       margin-bottom: 12px;
     }
-    #loading p { font-size: 0.78rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); }
+    #loading p, #convert-loading p { font-size: 0.78rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-400); }
 
-    /* ── 結果エリア ────────────────────────────────────── */
-    #result-area { display: none; }
+    /* ── 結果エリア（調べる・変換で共通） ───────────────── */
+    #result-area, #convert-result-area { display: none; }
 
     /* ── 地域・読み方グリッド ─────────────────────────── */
     .result-grid-wrapper {
@@ -417,8 +419,19 @@
     .announcer-block .point-label:first-child { margin-top: 0; }
     .announcer-block .point-value { font-size: 0.97rem; line-height: 1.8; color: #e4e4e4; }
 
-    /* ── エラーメッセージ ──────────────────────────────── */
-    #error-msg { display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; padding: 13px 18px; color: #b91c1c; font-size: 0.88rem; margin-bottom: 14px; }
+    /* ── エラーメッセージ（調べる・変換で共通） ─────────── */
+    #error-msg, #convert-error-msg { display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; padding: 13px 18px; color: #b91c1c; font-size: 0.88rem; margin-bottom: 14px; }
+
+    /* ── 変換モード：ハイライト・対応表 ─────────────────── */
+    /* 変換文の中で伊予弁に変化した箇所を強調する */
+    .convert-highlight { background: var(--gray-100); border-bottom: 2px solid var(--black); padding: 0 3px; font-weight: 600; border-radius: 2px 2px 0 0; }
+    /* 標準語→伊予弁の対応を1行ずつ表示する */
+    .convert-map-item  { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.95rem; flex-wrap: wrap; }
+    .convert-map-item:last-child { border-bottom: none; }
+    .convert-map-std   { color: var(--gray-600); }                 /* 変換元の標準語 */
+    .convert-map-arrow { color: var(--gray-400); }                 /* 矢印 */
+    .convert-map-iyo   { color: var(--black); font-weight: 600; }  /* 変換後の伊予弁 */
+    .convert-map-empty { color: var(--gray-400); font-size: 0.9rem; padding: 8px 0; } /* 変換箇所なしの表示 */
 
     /* ── 研修モード：進捗バー ─────────────────────────── */
     .quiz-progress-wrap  { margin-bottom: 18px; }
@@ -656,6 +669,7 @@
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="search"   onclick="switchTab('search')">調べるモード</button>
       <button class="tab-btn"        data-tab="training" onclick="switchTab('training')">研修モード</button>
+      <button class="tab-btn"        data-tab="convert"  onclick="switchTab('convert')">変換モード</button> <!-- 標準語→伊予弁変換タブ -->
     </div>
 
     <!-- ════════════════════════════════════════════════════ -->
@@ -831,6 +845,47 @@
       </div>
 
     </div><!-- /#training-mode -->
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  変換モード（標準語 → 伊予弁）                        -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <div id="convert-mode" style="display:none">                   <!-- 変換モード全体（初期は非表示） -->
+
+      <div class="card">                                          <!-- 入力カード -->
+        <h2>標準語 → 伊予弁 変換</h2>                              <!-- カード見出し -->
+
+        <div class="sample-buttons-area">                         <!-- 例文ボタンエリア -->
+          <div class="sample-buttons-label">例文</div>            <!-- 例文の見出し -->
+          <div class="sample-buttons-row" id="convert-sample-row"></div> <!-- 例文ボタンをJSで描画するコンテナ -->
+        </div>
+
+        <textarea
+          id="convert-input"
+          placeholder="標準語の文章を入力してください（例：今日はありがとうございました）"
+        ></textarea>                                              <!-- 標準語の入力欄 -->
+        <button id="convert-btn" onclick="convertText()">伊予弁に変換</button> <!-- 変換実行ボタン -->
+      </div>
+
+      <div id="convert-error-msg"></div>                          <!-- 変換モード用エラー表示 -->
+
+      <div id="convert-loading">                                  <!-- 変換中ローディング -->
+        <div class="spinner"></div>                               <!-- スピナー -->
+        <p>変換中</p>                                             <!-- ローディング文言 -->
+      </div>
+
+      <div id="convert-result-area" class="card">                 <!-- 変換結果カード（初期は非表示） -->
+        <h2>変換結果</h2>                                         <!-- 結果カード見出し -->
+        <div class="result-section">                             <!-- 伊予弁変換文セクション -->
+          <div class="label">伊予弁</div>                         <!-- ラベル -->
+          <div class="value" id="convert-output"></div>           <!-- 変換文（ハイライト付き）を表示する -->
+        </div>
+        <div class="result-section">                             <!-- 対応表セクション -->
+          <div class="label">変換箇所（標準語 → 伊予弁）</div>    <!-- ラベル -->
+          <div id="convert-mappings"></div>                       <!-- 各変換箇所の対応をJSで描画する -->
+        </div>
+      </div>
+
+    </div><!-- /#convert-mode -->
 
   </div><!-- /.container -->
 
@@ -1037,6 +1092,8 @@
       if (saved) document.getElementById('access-code').value = saved;
       // 初期サンプルボタンを生成する
       updateSampleButtons();
+      // 変換モードの例文ボタンを生成する
+      initConvertSamples();
       // Supabase を初期化する（非同期・失敗しても続行）
       initSupabase();
     });
@@ -1046,12 +1103,13 @@
     // ════════════════════════════════════════════════════════
 
     function switchTab(mode) {
-      document.getElementById('search-mode').style.display   = mode === 'search'   ? 'block' : 'none';
-      document.getElementById('training-mode').style.display = mode === 'training' ? 'block' : 'none';
+      document.getElementById('search-mode').style.display   = mode === 'search'   ? 'block' : 'none'; // 調べるモードの表示切替
+      document.getElementById('training-mode').style.display = mode === 'training' ? 'block' : 'none'; // 研修モードの表示切替
+      document.getElementById('convert-mode').style.display  = mode === 'convert'  ? 'block' : 'none'; // 変換モードの表示切替
       document.querySelectorAll('.tab-btn').forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.tab === mode);
+        btn.classList.toggle('active', btn.dataset.tab === mode);   // 選択中タブのハイライトを更新する
       });
-      if (mode === 'training') renderRecords();
+      if (mode === 'training') renderRecords();                     // 研修モードに切り替えたら記録を再描画する
     }
 
     // ════════════════════════════════════════════════════════
@@ -1171,6 +1229,150 @@
 
     document.getElementById('dialect-input').addEventListener('keydown', function(e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') searchDialect();
+    });
+
+    // ════════════════════════════════════════════════════════
+    //  変換モード：標準語 → 伊予弁
+    // ════════════════════════════════════════════════════════
+
+    // 変換モードの例文（3つ）
+    const CONVERT_SAMPLES = [
+      '今日はありがとうございました',
+      'それではまた明日会いましょう',
+      'これはだめだよ、やめなさい',
+    ];
+
+    // 例文ボタンを生成する
+    function initConvertSamples() {
+      const row = document.getElementById('convert-sample-row');   // 例文ボタンの描画先
+      row.innerHTML = '';                                          // 既存ボタンをクリアする
+      CONVERT_SAMPLES.forEach(function(text) {                     // 例文ごとにボタンを生成する
+        const btn = document.createElement('button');             // ボタン要素を作成する
+        btn.className = 'sample-btn';                              // サンプルボタン用スタイルを適用する
+        btn.textContent = text;                                   // ボタンに例文を表示する
+        btn.addEventListener('click', function() {                // クリック時のハンドラを登録する
+          document.getElementById('convert-input').value = text;  // 入力欄に例文をセットする
+          document.getElementById('convert-input').focus();       // 入力欄にフォーカスを移す
+        });
+        row.appendChild(btn);                                     // 生成したボタンを行に追加する
+      });
+    }
+
+    // 変換を実行する
+    async function convertText() {
+      const text = document.getElementById('convert-input').value.trim();  // 入力された標準語を取得する
+      if (!text)      { showConvertError('標準語の文章を入力してください。'); return; }        // 未入力チェック
+      if (!hasAuth()) { showConvertError('アクセスコードを入力するか、ログインしてください。'); return; } // 認証チェック
+
+      hideConvertError();                                          // 既存エラーを消す
+      showConvertLoading(true);                                    // ローディング表示ON
+      setConvertButtonState(false);                               // ボタンを無効化する
+      document.getElementById('convert-result-area').style.display = 'none'; // 前回結果を隠す
+
+      try {
+        const res = await fetch('/api/convert', {                 // 変換APIを呼び出す
+          method: 'POST',
+          headers: buildApiHeaders(),                             // 認証ヘッダーを付与する
+          body: JSON.stringify({ text, accessCode: getAccessCode() }), // 本文と アクセスコードを送る
+        });
+        const data = await res.json();                            // レスポンスJSONを取得する
+        if (!res.ok) throw new Error(data.error || 'エラー: ' + res.status); // エラー時は例外を投げる
+        displayConvertResult(data);                               // 結果を描画する
+      } catch (err) {
+        showConvertError('エラーが発生しました：' + err.message);  // エラーを表示する
+      } finally {
+        showConvertLoading(false);                                // ローディング表示OFF
+        setConvertButtonState(true);                              // ボタンを有効化する
+      }
+    }
+
+    // 変換結果を描画する
+    function displayConvertResult(result) {
+      const mappings = Array.isArray(result.mappings) ? result.mappings : []; // 対応表（配列でなければ空に）
+
+      // 伊予弁変換文をハイライト付きで表示する
+      document.getElementById('convert-output').innerHTML =
+        buildHighlightedText(result.converted || '', mappings);
+
+      // 変換箇所の対応表を描画する
+      const mapEl = document.getElementById('convert-mappings');  // 対応表の描画先
+      mapEl.innerHTML = '';                                       // クリアする
+      if (mappings.length > 0) {
+        mappings.forEach(function(m) {                            // 各対応を1行ずつ描画する
+          const item = document.createElement('div');
+          item.className = 'convert-map-item';
+          item.innerHTML =
+            '<span class="convert-map-std">' + escapeHtml(m.standard || '') + '</span>' + // 標準語
+            '<span class="convert-map-arrow">→</span>' +                                    // 矢印
+            '<span class="convert-map-iyo">' + escapeHtml(m.iyoben || '') + '</span>';      // 伊予弁
+          mapEl.appendChild(item);
+        });
+      } else {
+        mapEl.innerHTML = '<div class="convert-map-empty">変換箇所はありませんでした。</div>'; // 変換なし
+      }
+
+      // 結果エリアをフェード表示してスクロールする
+      const area = document.getElementById('convert-result-area');
+      area.style.display    = 'block';
+      area.style.opacity    = '0';
+      area.style.transition = 'opacity 0.3s ease';
+      requestAnimationFrame(function() { area.style.opacity = '1'; });
+      area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // 変換文の中で伊予弁に変化した箇所を <mark> で強調したHTMLを生成する
+    function buildHighlightedText(converted, mappings) {
+      // ハイライト対象の伊予弁表現を長い順に並べる（短い語が長い語の一部に誤マッチするのを防ぐ）
+      const terms = mappings
+        .map(function(m) { return m.iyoben || ''; })              // 伊予弁表現だけを取り出す
+        .filter(function(t) { return t.length > 0; })             // 空文字を除外する
+        .sort(function(a, b) { return b.length - a.length; });    // 文字数の降順にする
+
+      // 本文中の各伊予弁表現を、本文に現れないトークンへ一旦置換する
+      // マーカーには通常の文章に現れない制御文字（U+FFFC）を使う
+      const MARK = String.fromCharCode(0xFFFC);                   // トークンを挟むユニークな1文字
+      let text = converted;                                       // 作業用の本文
+      const tokens = [];                                          // トークンと元表現の対応を保持する
+      terms.forEach(function(term, i) {
+        if (text.indexOf(term) === -1) return;                    // 本文に無ければスキップ
+        const token = MARK + i + MARK;                            // ユニークなトークン（本文に出現しない）
+        text = text.replace(term, token);                         // 最初の1箇所だけトークン化する
+        tokens.push({ token: token, term: term });                // 後で復元するために記録する
+      });
+
+      // 本文をHTMLエスケープしてから、トークンをハイライトspanへ復元する
+      let html = escapeHtml(text);                                // XSS対策でエスケープする
+      tokens.forEach(function(t) {
+        html = html.replace(
+          t.token,                                                // トークンを
+          '<mark class="convert-highlight">' + escapeHtml(t.term) + '</mark>' // ハイライトspanに戻す
+        );
+      });
+      return html;
+    }
+
+    // 変換モードのローディング表示切替
+    function showConvertLoading(v) {
+      document.getElementById('convert-loading').style.display = v ? 'block' : 'none';
+    }
+    // 変換ボタンの有効/無効・ラベル切替
+    function setConvertButtonState(e) {
+      const btn = document.getElementById('convert-btn');
+      btn.disabled = !e; btn.textContent = e ? '伊予弁に変換' : '変換中...';
+    }
+    // 変換モードのエラー表示
+    function showConvertError(msg) {
+      const el = document.getElementById('convert-error-msg');
+      el.textContent = '⚠ ' + msg; el.style.display = 'block';
+    }
+    // 変換モードのエラー非表示
+    function hideConvertError() {
+      document.getElementById('convert-error-msg').style.display = 'none';
+    }
+
+    // 変換入力欄で Ctrl/Cmd + Enter でも変換を実行できるようにする
+    document.getElementById('convert-input').addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') convertText();
     });
 
     // ════════════════════════════════════════════════════════
