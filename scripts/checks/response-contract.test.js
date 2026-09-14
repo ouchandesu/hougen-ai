@@ -32,9 +32,15 @@ test('変換: 正規化ヘルパーが読むキーが、プロンプトの JSON 
   assert.deepStrictEqual(['segments', ...SEGMENT_MODEL_KEYS].filter((k) => !keys.has(k)), []);
 });
 
+test('publicEntry が PUBLIC_ENTRY_KEYS と同じキーを返す', () => {
+  const { VOCAB, PUBLIC_ENTRY_KEYS, publicEntry } = require('../../api/_vocab');
+  assert.deepStrictEqual(Object.keys(publicEntry(VOCAB[0])).sort(), [...PUBLIC_ENTRY_KEYS].sort());
+});
+
 test('応答のキーを index.html が読んでいる', () => {
   const html = read('index.html');
-  const unread = [...CHOICE_RESPONSE_KEYS, ...CONVERT_RESPONSE_KEYS, ...SEGMENT_MODEL_KEYS]
+  const { PUBLIC_ENTRY_KEYS } = require('../../api/_vocab');
+  const unread = [...CHOICE_RESPONSE_KEYS, ...CONVERT_RESPONSE_KEYS, ...SEGMENT_MODEL_KEYS, 'vocab', ...PUBLIC_ENTRY_KEYS]
     .filter((k) => !new RegExp(`\\.${k}\\b`).test(html));
   assert.deepStrictEqual(unread, []);
 });

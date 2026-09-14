@@ -1,10 +1,22 @@
-// Vercelサーバーレス関数：方言クイズ出題（generate）と採点（grade）
+// Vercelサーバーレス関数：方言クイズ出題（generate / generate_choice）と採点（grade）
 // 認証：Supabaseトークン or ACCESS_CODE
+// 出題する語はモデルに選ばせず、資料で裏付けた一覧（_vocab.js）からサーバーが選ぶ
 
 const { verifyAuth } = require('./_auth');
 const { logUsage }   = require('./_log');
 const { TARGET_REGION, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
 const { CHOICE_KINDS, normalizeChoiceQuestion } = require('./_normalize');  // 2択の出題を応答の形へ整える
+const { publicEntry, findEntry, pickEntry, entryForPrompt } = require('./_vocab'); // 出題に使う語の一覧
+
+// 資料の意味を「正」として扱わせる指示（2択の出題と採点で共通）
+function vocabRule(entry, R) {
+  return `【出題の語（資料で裏付けた情報。これを正とする）】
+${entryForPrompt(entry)}
+- この語の意味は上の「意味」だけを正とし、資料に無い別の意味・用法・語源を作らないでください。
+- 「今の使われ方」が昔の言葉・年配の人の言葉とされている場合は、そのことを解説で伝えてください。
+- 上の情報で足りない点（細かいニュアンスなど）に確信が無ければ、解説で断定せず触れないでください。
+- 他の${R.dialect}の表現を足す場合も、意味に確信があるものに限ってください。`;
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -17,7 +29,24 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'アクセスコードが正しくないか、ログインが必要です' });
   }
 
-  const { action, region, usedWords, word, question, userAnswer, kind } = req.body;
+  const { action, region, usedIds, vocabId, word, question, userAnswer, kind } = req.body;
+
+  // ── 記述式の出題：一覧から語を選んで返すだけ（モデルは呼ばない） ──────
+  if (action === 'generate') {
+    const entry = pickEntry(usedIds);
+    await logUsage({
+      userId:     auth.userId,
+      authMethod: auth.method,
+      action:     'quiz_generate',
+      region:     region || null,
+    });
+    return res.status(200).json({
+      word:     entry.word,
+      region:   entry.region,
+      question: `「${entry.word}」とはどういう意味でしょうか？`,
+      vocab:    publicEntry(entry),
+    });
+  }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -27,35 +56,9 @@ module.exports = async function handler(req, res) {
   // ── アクション分岐 ─────────────────────────────────────────
   const R = TARGET_REGION;   // 対象地域（将来の都道府県切替は _dialect.js 側で行う）
   let prompt;
+  let entry = null;          // 出題・採点の対象の語（一覧の項目）
 
-  // 出題済みの単語・例文は再出題しないように除外指示を組み立てる
-  const avoidStr  = Array.isArray(usedWords) && usedWords.length > 0
-    ? `\n以下の単語・表現はすでに出題済みなので絶対に使わないでください：${usedWords.join('、')}`
-    : '';
-
-  if (action === 'generate') {
-    // 対象方言のみに限定した出題プロンプト（共通ルールは _dialect.js に集約）
-    prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
-${R.dialect}から1つ単語または短い例文を選び、新人アナウンサー向けのクイズを1問作成してください。${avoidStr}
-
-${purityRule()}
-
-出題する表現は${R.prefecture}で実際に使われている${R.dialect}だけに限定してください。
-
-選ぶ方言の条件：
-- アナウンサーが取材や放送で遭遇しうるリアルな${R.dialect}の表現
-- 標準語話者が意味を推測しにくいもの（やや難しめ）
-- 標準語や全国で共通に使う言葉は選ばない
-
-${jsonOnlyRule()}
-
-{
-  "word": "出題する${R.dialect}の単語または短い例文（${R.dialect}のまま・標準語訳なし）",
-  "region": "この${R.dialect}が主に使われる${R.prefecture}内の地域名",
-  "question": "「（その${R.dialect}）」とはどういう意味でしょうか？"
-}`;
-
-  } else if (action === 'generate_choice') {
+  if (action === 'generate_choice') {
     if (!CHOICE_KINDS.includes(kind)) {
       return res.status(400).json({ error: `不明な出題の種類: ${kind}` });
     }
@@ -73,22 +76,25 @@ ${jsonOnlyRule()}
           wrong:    `この例文を使うと不自然、または意味が通じない場面・話し相手の説明（correct と同じくらいの長さ・言い回し）`,
         };
 
+    entry = pickEntry(usedIds);
+    const wrongHint = kind === 'meaning'
+      ? '誤りの選択肢は、出題の語の意味を取り違えた訳にする（出題の語を標準語の似た言葉と勘違いした場合など）'
+      : '誤りの選択肢は、出題の語の意味からすると不自然な場面にする';
     prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
-新人アナウンサー向けに、${R.dialect}の例文を使った2択クイズを1問作成してください。${avoidStr}
+新人アナウンサー向けに、下の「出題の語」を使った${R.dialect}の例文で、2択クイズを1問作成してください。
+
+${vocabRule(entry, R)}
 
 ${purityRule()}
 
 例文の条件：
-- 今の${R.prefecture}の話者が実際に口にする、自然な会話の1文（単語だけにしない）。${R.dialect}らしさのために無理な言い回しを足さない
-- 例文に含める${R.dialect}の表現は、意味と使われ方に確信があるものに限る
-- 問いの中心にする表現は、${R.dialect}の紹介や方言集で定番として挙がる、よく知られた表現から選ぶ。
-  標準語や全国で共通に使う言葉（「きつい」「ちっとも」など）を${R.dialect}として出題しない
-- 標準語と同じ形の語に「${R.dialect}では別の意味」を当てはめる出題は、その意味が確立していると確信できる場合だけにする。
-  珍しい意味を作って難しくしない
+- 出題の語を、資料の意味のとおりに必ず含めた、自然な会話の1文（単語だけにしない）。資料の例文があれば参考にしてよい
+- 出題の語以外は、無理に${R.dialect}にしない（標準語のままで自然な部分は標準語でよい）
+- 昔の言葉・年配の人の言葉とされている語は、年配の人の会話など、その語が自然に出る場面にする
 - アナウンサーが取材や放送で遭遇しうる場面の言い回し
-- 標準語話者が${kind === 'meaning' ? '意味' : '使う場面'}を取り違えやすいもの（やや難しめ）
 
 選択肢の条件：
+- ${wrongHint}
 - correct と wrong のどちらが正解か、文の長さや詳しさで見分けられないようにする
 - wrong も${R.prefecture}の話者が聞けば明確に誤りと分かるものにする（どちらとも取れる選択肢にしない）
 
@@ -100,17 +106,20 @@ ${jsonOnlyRule()}
   "question": "${target.question}",
   "correct": "${target.correct}",
   "wrong": "${target.wrong}",
-  "explanation": "正解の理由と、例文中の${R.dialect}の意味・ニュアンス・使われる場面（2〜4文）",
-  "announcerTips": "アナウンサーとしての注意点（放送での扱い・発音・取材時の対応など、2〜3文）"
+  "explanation": "正解の理由と、例文中の出題の語の意味・使われる場面（2〜4文。資料に無い意味を足さない）",
+  "announcerTips": "アナウンサーとしての注意点（放送での扱い・取材時の対応など、2〜3文）"
 }`;
 
   } else if (action === 'grade') {
     if (!word || !userAnswer) {
       return res.status(400).json({ error: '採点に必要なパラメータが不足しています（word / userAnswer）' });
     }
+    entry = findEntry(vocabId);   // 一覧に無い id（古い画面から来た回答など）は、資料の情報なしで採点する
 
-    // 対象方言の専門家として採点・解説させる
+    // 対象方言の専門家として採点・解説させる。一覧の語なら資料の意味を正として採点する
     prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。以下のクイズへの回答を採点し、詳しく解説してください。
+
+${entry ? vocabRule(entry, R) : ''}
 
 ${purityRule()}
 
@@ -172,6 +181,11 @@ ${jsonOnlyRule()}
     try {
       result = JSON.parse(cleaned);
       if (action === 'generate_choice') result = normalizeChoiceQuestion(result, kind);
+      if (entry) {
+        result.vocab = publicEntry(entry);                          // 出題の語と資料の情報は、モデルでなく一覧から返す
+        if (entry.region) result.region = entry.region;             // 地域も資料にあればモデルの推測より優先する
+        if (action === 'grade') result.correctMeaning = entry.meaning; // 正しい意味は資料の意味で上書きする
+      }
     } catch {
       return res.status(500).json({ error: 'AIの応答を解析できませんでした。もう一度お試しください。' });
     }
