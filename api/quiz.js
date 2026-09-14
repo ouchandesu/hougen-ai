@@ -15,7 +15,9 @@ ${entryForPrompt(entry)}
 - この語の意味は上の「意味」だけを正とし、資料に無い別の意味・用法・語源を作らないでください。
 - 「今の使われ方」が昔の言葉・年配の人の言葉とされている場合は、そのことを解説で伝えてください。
 - 上の情報で足りない点（細かいニュアンスなど）に確信が無ければ、解説で断定せず触れないでください。
-- 他の${R.dialect}の表現を足す場合も、意味に確信があるものに限ってください。`;
+- 他の${R.dialect}の表現を足す場合も、意味に確信があるものに限ってください。
+- 出題の語は、資料の表記のまま書いてください（清音・濁音などを変えない）。
+- 解説とアナウンサーの注意点は標準語で書いてください（方言の語や例文を引用する部分を除く）。`;
 }
 
 module.exports = async function handler(req, res) {
@@ -183,7 +185,7 @@ ${jsonOnlyRule()}
       if (action === 'generate_choice') result = normalizeChoiceQuestion(result, kind);
       if (entry) {
         result.vocab = publicEntry(entry);                          // 出題の語と資料の情報は、モデルでなく一覧から返す
-        if (entry.region) result.region = entry.region;             // 地域も資料にあればモデルの推測より優先する
+        result.region = entry.region;                               // 地域は資料の記述だけを出す（無ければ空。モデルの推測は出さない）
         if (action === 'grade') result.correctMeaning = entry.meaning; // 正しい意味は資料の意味で上書きする
       }
     } catch {
