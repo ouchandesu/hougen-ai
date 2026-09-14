@@ -92,8 +92,14 @@ test('変換: 変わっていない区切り・形の崩れた区切りを整え
   assert.strictEqual(r.matchesInput, true);
 });
 
-test('変換: segments が無い・空なら例外にする', () => {
+test('変換: segments が無ければ例外にする', () => {
   assert.throws(() => normalizeConvert({}, 'a'));
-  assert.throws(() => normalizeConvert({ segments: [] }, 'a'));
   assert.throws(() => normalizeConvert(null, 'a'));
+});
+
+test('変換: segments が空（変える箇所なし）なら原文をそのまま返す', () => {
+  const r = normalizeConvert({ segments: [] }, '今日はありがとうございました');
+  assert.deepStrictEqual(r.segments, [{ text: '今日はありがとうございました' }]);
+  assert.strictEqual(r.matchesInput, true);
+  assert.deepStrictEqual(normalizeConvert({ segments: [null, { standard: '', iyoben: '' }] }, 'そのまま').segments, [{ text: 'そのまま' }]);
 });

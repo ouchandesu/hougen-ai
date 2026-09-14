@@ -68,7 +68,11 @@ function normalizeConvert(raw, input) {
     if (seg.text !== undefined && last && last.text !== undefined) last.text += seg.text; // 隣り合う text はまとめる
     else segments.push(seg);
   }
-  if (!segments.length) throw new Error('変換結果が空です');
+  // 変える箇所が無いとき、モデルは空の segments を返すことがある。原文をそのまま 1 つの区切りにする
+  if (!segments.length) {
+    if (!String(input || '')) throw new Error('変換結果が空です');
+    segments.push({ text: String(input) });
+  }
 
   const standard = segments.map((s) => (s.text !== undefined ? s.text : s.standard)).join('');
   return { segments, matchesInput: squash(standard) === squash(input) };
