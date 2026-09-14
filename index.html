@@ -1454,7 +1454,8 @@
         mapEl.appendChild(item);
       });
       if (count === 0) {
-        mapEl.innerHTML = '<div class="convert-map-empty">変換箇所はありませんでした。</div>';
+        // 無理に方言へ寄せない方針なので、変わらないのは正常な結果として伝える
+        mapEl.innerHTML = '<div class="convert-map-empty">標準語のままで自然な文なので、変換した箇所はありません。</div>';
       }
     }
 
