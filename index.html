@@ -542,6 +542,16 @@
     .review-region  { font-size: 0.72rem; color: var(--gray-400); }
     .review-meaning { font-size: 0.86rem; color: var(--gray-600); line-height: 1.6; }
 
+    /* ── 研修モード：出題の語（資料より） ─────────────────── */
+    .vocab-card    { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 3px; padding: 14px 16px; display: grid; gap: 6px; }
+    .vocab-head    { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .vocab-word    { font-size: 1.15rem; font-weight: 600; color: var(--black); }
+    .vocab-pill    { display: inline-block; background: var(--gray-200); color: var(--gray-600); border-radius: 2px; padding: 2px 8px; font-size: 0.7rem; font-weight: 600; }
+    .vocab-meaning { font-size: 0.97rem; line-height: 1.7; color: var(--black); }
+    .vocab-note    { font-size: 0.85rem; line-height: 1.6; color: var(--gray-600); }
+    .vocab-sources { font-size: 0.75rem; color: var(--gray-400); display: flex; gap: 4px 10px; flex-wrap: wrap; }
+    .vocab-sources a { color: var(--gray-600); }
+
     /* ── 研修モード：学習記録 ─────────────────────────── */
     .record-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.86rem; }
     .record-item:last-child { border-bottom: none; }
@@ -838,6 +848,10 @@
         <div class="grade-section">
           <div class="grade-label" id="grade-correct-label">正しい意味</div>
           <div class="grade-value" id="grade-correct-meaning"></div>
+        </div>
+        <div class="grade-section" id="grade-vocab-section" style="display:none">
+          <div class="grade-label">出題の語（資料より）</div>
+          <div class="vocab-card" id="grade-vocab"></div>
         </div>
         <div class="grade-section">
           <div class="grade-label">解説</div>
@@ -1522,7 +1536,7 @@
         format,
         totalQuestions: total,
         currentIndex:   0,
-        usedWords:      [],
+        usedIds:        [],                                            // 出題済みの語の id（api/_vocab.js）
         answers:        [],
         currentQuestion: null,
       };
@@ -1550,14 +1564,14 @@
             action:     kind ? 'generate_choice' : 'generate',
             kind:       kind || undefined,
             region:     quizState.region,
-            usedWords:  quizState.usedWords,
+            usedIds:    quizState.usedIds,
             accessCode: getAccessCode(),
           }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'APIエラー');
         quizState.currentQuestion = data;
-        quizState.usedWords.push(kind ? data.sentence : data.word);
+        if (data.vocab) quizState.usedIds.push(data.vocab.id);
         showQuestion();
       } catch (err) {
         showQuizPhase('setup');
@@ -1573,7 +1587,9 @@
       document.getElementById('quiz-progress-text').textContent = '問題 ' + num + ' / ' + tot;
       const isChoice = Array.isArray(q.choices);                         // 2択の出題か
       const wordEl   = document.getElementById('quiz-word');
-      document.getElementById('quiz-region-label').textContent  = q.region   || '';
+      // 地域と「昔の言葉」などの注記を並べる（どちらも資料にある場合だけ出る）
+      document.getElementById('quiz-region-label').textContent  =
+        [q.region, q.vocab && q.vocab.usageLabel].filter(Boolean).join(' · ');
       wordEl.textContent = (isChoice ? q.sentence : q.word) || '';
       wordEl.classList.toggle('is-sentence', isChoice);
       document.getElementById('quiz-question-text').textContent = q.question || '';
@@ -1612,6 +1628,7 @@
       quizState.answers.push({
         format:         'choice',
         kind:           q.kind,
+        vocabId:        q.vocab ? q.vocab.id : null,
         word:           q.sentence,                                    // 振り返り・記録では例文を出す
         region:         q.region,
         question:       q.question,
@@ -1639,6 +1656,7 @@
           body: JSON.stringify({
             action:     'grade',
             word:       quizState.currentQuestion.word,
+            vocabId:    quizState.currentQuestion.vocab ? quizState.currentQuestion.vocab.id : undefined,
             question:   quizState.currentQuestion.question,
             userAnswer: answer,
             accessCode: getAccessCode(),
@@ -1648,6 +1666,7 @@
         if (!res.ok) throw new Error(data.error || 'APIエラー');
         quizState.answers.push({
           format:         'text',
+          vocabId:        quizState.currentQuestion.vocab ? quizState.currentQuestion.vocab.id : null,
           word:           quizState.currentQuestion.word,
           region:         quizState.currentQuestion.region,
           question:       quizState.currentQuestion.question,
@@ -1682,6 +1701,7 @@
       document.getElementById('grade-user-answer').textContent     = '「' + userAnswer + '」';
       document.getElementById('grade-correct-meaning').textContent = grade.correctMeaning || '情報なし';
       document.getElementById('grade-explanation').textContent     = grade.explanation    || '情報なし';
+      renderVocabCard((q && q.vocab) || grade.vocab || null);
       const tipsEl = document.getElementById('grade-announcer-tips');
       tipsEl.innerHTML = '';
       if (grade.announcerTips) {
@@ -1695,6 +1715,40 @@
       const isLast = quizState.currentIndex + 1 >= quizState.totalQuestions;
       document.getElementById('grade-next-btn').textContent = isLast ? '結果を見る' : '次の問題へ';
       showQuizPhase('grade');
+    }
+
+    // 採点カードに、出題の語の資料の情報（語・意味・使われ方・補足・出典）を描く。モデルの生成物ではない
+    function renderVocabCard(vocab) {
+      const section = document.getElementById('grade-vocab-section');
+      const card    = document.getElementById('grade-vocab');
+      card.innerHTML = '';
+      section.style.display = vocab ? 'block' : 'none';
+      if (!vocab) return;
+
+      const el = function(tag, cls, text) {
+        const node = document.createElement(tag);
+        node.className = cls;
+        if (text) node.textContent = text;
+        return node;
+      };
+      const head = el('div', 'vocab-head');
+      head.appendChild(el('span', 'vocab-word', vocab.word));
+      [vocab.region, vocab.usageLabel].filter(Boolean).forEach(function(t) { head.appendChild(el('span', 'vocab-pill', t)); });
+      card.appendChild(head);
+      card.appendChild(el('div', 'vocab-meaning', vocab.meaning));
+      if (vocab.note) card.appendChild(el('div', 'vocab-note', vocab.note));
+
+      const src = el('div', 'vocab-sources', '出典：');
+      (vocab.sources || []).forEach(function(url) {
+        if (!/^https?:\/\//.test(url)) return;                          // 一覧は URL だけを持つ。念のため http(s) 以外は出さない
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = new URL(url).hostname;
+        src.appendChild(a);
+      });
+      card.appendChild(src);
     }
 
     function nextQuestion() {
