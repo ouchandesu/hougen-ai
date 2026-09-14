@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/check-syntax.js\"", "timeout": 30 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read|Edit|Write|Grep|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/deny-env-files.js\"", "timeout": 10 }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/deny-dangerous-commands.js\"", "timeout": 10 }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": ["Read(**/.env)", "Read(**/.env.*)"]
+  }
+}
