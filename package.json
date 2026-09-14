@@ -1,4 +1,11 @@
 {
+  "private": true,
+  "scripts": {
+    "adr:index": "node scripts/adr-index.js",
+    "adr:new": "node scripts/adr-new.js",
+    "link": "node scripts/link-agents.js",
+    "test": "node --test \"scripts/checks/*.test.js\""
+  },
   "engines": {
     "node": ">=18"
   }

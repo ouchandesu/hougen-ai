@@ -1,0 +1,8 @@
+# 公開サイトに載せないもの（開発規約・設計文書・開発用スクリプト）
+AGENTS.md
+CLAUDE.md
+.agents
+.claude
+docs
+scripts
+ai-workflow-porting-brief.md

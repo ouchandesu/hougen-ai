@@ -3,6 +3,8 @@
 
 const { verifyAuth } = require('./_auth');
 const { logUsage }   = require('./_log');
+const { TARGET_REGION, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
+const { CHOICE_KINDS, normalizeChoiceQuestion } = require('./_normalize');  // 2択の出題を応答の形へ整える
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -15,7 +17,7 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'アクセスコードが正しくないか、ログインが必要です' });
   }
 
-  const { action, region, usedWords, word, question, userAnswer } = req.body;
+  const { action, region, usedWords, word, question, userAnswer, kind } = req.body;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -23,33 +25,78 @@ module.exports = async function handler(req, res) {
   }
 
   // ── アクション分岐 ─────────────────────────────────────────
+  const R = TARGET_REGION;   // 対象地域（将来の都道府県切替は _dialect.js 側で行う）
   let prompt;
 
+  // 出題済みの単語・例文は再出題しないように除外指示を組み立てる
+  const avoidStr  = Array.isArray(usedWords) && usedWords.length > 0
+    ? `\n以下の単語・表現はすでに出題済みなので絶対に使わないでください：${usedWords.join('、')}`
+    : '';
+
   if (action === 'generate') {
-    // 出題済みの単語は再出題しないように除外指示を組み立てる
-    const avoidStr  = Array.isArray(usedWords) && usedWords.length > 0
-      ? `\n以下の単語・表現はすでに出題済みなので絶対に使わないでください：${usedWords.join('、')}`
-      : '';
+    // 対象方言のみに限定した出題プロンプト（共通ルールは _dialect.js に集約）
+    prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
+${R.dialect}から1つ単語または短い例文を選び、新人アナウンサー向けのクイズを1問作成してください。${avoidStr}
 
-    // 伊予弁のみに限定した出題プロンプト（他地域の方言を混入させない）
-    prompt = `愛媛県の伊予弁のみを出題してください。
-他の地域（広島・岡山・香川など）の方言は
-絶対に含めないでください。
-出題する方言は愛媛県で実際に使われている
-伊予弁の表現だけに限定してください。
+${purityRule()}
 
-あなたは愛媛県の伊予弁の専門家です。伊予弁から1つ単語または短い例文を選び、新人アナウンサー向けのクイズを1問作成してください。${avoidStr}
+出題する表現は${R.prefecture}で実際に使われている${R.dialect}だけに限定してください。
 
 選ぶ方言の条件：
-- アナウンサーが取材や放送で遭遇しうるリアルな伊予弁の表現
+- アナウンサーが取材や放送で遭遇しうるリアルな${R.dialect}の表現
 - 標準語話者が意味を推測しにくいもの（やや難しめ）
 
-以下のJSON形式のみで回答してください。前後の説明文・コードブロックは不要です。
+${jsonOnlyRule()}
 
 {
-  "word": "出題する伊予弁の単語または短い例文（伊予弁のまま・標準語訳なし）",
-  "region": "この伊予弁が主に使われる愛媛県内の地域名",
-  "question": "「（その伊予弁）」とはどういう意味でしょうか？"
+  "word": "出題する${R.dialect}の単語または短い例文（${R.dialect}のまま・標準語訳なし）",
+  "region": "この${R.dialect}が主に使われる${R.prefecture}内の地域名",
+  "question": "「（その${R.dialect}）」とはどういう意味でしょうか？"
+}`;
+
+  } else if (action === 'generate_choice') {
+    if (!CHOICE_KINDS.includes(kind)) {
+      return res.status(400).json({ error: `不明な出題の種類: ${kind}` });
+    }
+
+    // 種類ごとに「何を選ばせるか」だけが違う。正解と誤答は分けて出させ、並べ替えは _normalize.js で行う
+    const target = kind === 'meaning'
+      ? {
+          question: 'この例文の意味として正しいのはどちら？',
+          correct:  '例文の自然な標準語訳（1文）',
+          wrong:    `標準語話者が${R.dialect}を聞き違えたときにありがちな、もっともらしいが誤った標準語訳（correct と同じくらいの長さ・言い回し）`,
+        }
+      : {
+          question: 'この言い回しが自然に使われる場面はどちら？',
+          correct:  `${R.prefecture}でこの例文が自然に使われる場面・話し相手の説明（1文）`,
+          wrong:    `この例文を使うと不自然、または意味が通じない場面・話し相手の説明（correct と同じくらいの長さ・言い回し）`,
+        };
+
+    prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
+新人アナウンサー向けに、${R.dialect}の例文を使った2択クイズを1問作成してください。${avoidStr}
+
+${purityRule()}
+
+例文の条件：
+- 今の${R.prefecture}の話者が実際に口にする、自然な会話の1文（単語だけにしない）。${R.dialect}らしさのために無理な言い回しを足さない
+- 例文に含める${R.dialect}の表現は、意味と使われ方に確信があるものに限る
+- アナウンサーが取材や放送で遭遇しうる場面の言い回し
+- 標準語話者が${kind === 'meaning' ? '意味' : '使う場面'}を取り違えやすいもの（やや難しめ）
+
+選択肢の条件：
+- correct と wrong のどちらが正解か、文の長さや詳しさで見分けられないようにする
+- wrong も${R.prefecture}の話者が聞けば明確に誤りと分かるものにする（どちらとも取れる選択肢にしない）
+
+${jsonOnlyRule()}
+
+{
+  "sentence": "出題する${R.dialect}の例文（${R.dialect}のまま・標準語訳なし）",
+  "region": "この言い回しが主に使われる${R.prefecture}内の地域名",
+  "question": "${target.question}",
+  "correct": "${target.correct}",
+  "wrong": "${target.wrong}",
+  "explanation": "正解の理由と、例文中の${R.dialect}の意味・ニュアンス・使われる場面（2〜4文）",
+  "announcerTips": "アナウンサーとしての注意点（放送での扱い・発音・取材時の対応など、2〜3文）"
 }`;
 
   } else if (action === 'grade') {
@@ -57,8 +104,10 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: '採点に必要なパラメータが不足しています（word / userAnswer）' });
     }
 
-    // 伊予弁の専門家として採点・解説させる
-    prompt = `あなたは愛媛県の伊予弁の専門家です。以下のクイズへの回答を採点し、詳しく解説してください。
+    // 対象方言の専門家として採点・解説させる
+    prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。以下のクイズへの回答を採点し、詳しく解説してください。
+
+${purityRule()}
 
 方言：「${word}」
 問い：${question || 'この方言の意味は？'}
@@ -69,7 +118,7 @@ module.exports = async function handler(req, res) {
 - close（惜しい）  ：方向性は合っているが説明が不完全・部分的
 - incorrect（不正解）：意味が大きく異なる、または的外れ・空欄に近い
 
-以下のJSON形式のみで回答してください。前後の説明文・コードブロックは不要です。
+${jsonOnlyRule()}
 
 {
   "result": "correct または close または incorrect のいずれか1語",
@@ -117,8 +166,9 @@ module.exports = async function handler(req, res) {
     let result;
     try {
       result = JSON.parse(cleaned);
+      if (action === 'generate_choice') result = normalizeChoiceQuestion(result, kind);
     } catch {
-      return res.status(500).json({ error: 'AIの応答をJSONとして解析できませんでした。もう一度お試しください。' });
+      return res.status(500).json({ error: 'AIの応答を解析できませんでした。もう一度お試しください。' });
     }
 
     // ── 利用ログを記録してからレスポンスを返す ──────────────
@@ -126,7 +176,7 @@ module.exports = async function handler(req, res) {
     await logUsage({
       userId:     auth.userId,
       authMethod: auth.method,
-      action:     'quiz_' + action,   // 'quiz_generate' or 'quiz_grade'
+      action:     'quiz_' + action,   // 'quiz_generate' / 'quiz_generate_choice' / 'quiz_grade'
       region:     region || null,
     });
 

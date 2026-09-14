@@ -422,15 +422,24 @@
     /* ── エラーメッセージ（調べる・変換で共通） ─────────── */
     #error-msg, #convert-error-msg { display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 3px; padding: 13px 18px; color: #b91c1c; font-size: 0.88rem; margin-bottom: 14px; }
 
-    /* ── 変換モード：ハイライト・対応表 ─────────────────── */
-    /* 変換文の中で伊予弁に変化した箇所を強調する */
-    .convert-highlight { background: var(--gray-100); border-bottom: 2px solid var(--black); padding: 0 3px; font-weight: 600; border-radius: 2px 2px 0 0; }
+    /* ── 変換モード：本文のチップ・対応表 ───────────────── */
+    /* 本文中の変わった箇所。押すと伊予弁 ⇄ 標準語を切り替える */
+    .convert-chip { font: inherit; color: var(--black); background: var(--gray-100); border: none; border-bottom: 2px solid var(--black); padding: 0 3px; font-weight: 600; border-radius: 2px 2px 0 0; cursor: pointer; }
+    .convert-chip:hover { background: var(--gray-200); }
+    .convert-chip.is-standard { background: transparent; border-bottom: 2px dashed var(--gray-400); color: var(--gray-600); font-weight: 400; }
+    .convert-hint { font-size: 0.75rem; color: var(--gray-400); margin-top: 8px; }
+    .convert-note { font-size: 0.8rem; color: #a16207; background: #fefce8; border: 1px solid #fde047; border-radius: 3px; padding: 8px 12px; margin-top: 10px; }
+    .convert-actions { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+    .convert-copy-status { font-size: 0.78rem; color: var(--gray-400); }
     /* 標準語→伊予弁の対応を1行ずつ表示する */
     .convert-map-item  { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.95rem; flex-wrap: wrap; }
     .convert-map-item:last-child { border-bottom: none; }
+    .convert-map-toggle { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; color: var(--gray-600); cursor: pointer; }
     .convert-map-std   { color: var(--gray-600); }                 /* 変換元の標準語 */
     .convert-map-arrow { color: var(--gray-400); }                 /* 矢印 */
     .convert-map-iyo   { color: var(--black); font-weight: 600; }  /* 変換後の伊予弁 */
+    .convert-map-item.is-standard .convert-map-iyo { color: var(--gray-400); text-decoration: line-through; font-weight: 400; }
+    .convert-map-select { font: inherit; font-weight: 600; padding: 3px 6px; border: 1px solid var(--gray-200); border-radius: 3px; background: var(--white); }
     .convert-map-empty { color: var(--gray-400); font-size: 0.9rem; padding: 8px 0; } /* 変換箇所なしの表示 */
 
     /* ── 研修モード：進捗バー ─────────────────────────── */
@@ -444,6 +453,13 @@
     .quiz-region-pill    { display: inline-block; background: var(--gray-200); color: var(--gray-600); border-radius: 2px; padding: 3px 10px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; margin-bottom: 12px; }
     .quiz-word           { font-size: 2rem; font-weight: 500; letter-spacing: 0.04em; color: var(--black); line-height: 1.3; margin-bottom: 10px; }
     .quiz-question-text  { font-size: 0.9rem; color: var(--gray-600); line-height: 1.6; }
+    .quiz-word.is-sentence { font-size: 1.3rem; line-height: 1.6; }  /* 2択は例文を出すので小さめにする */
+
+    /* ── 研修モード：2択の選択肢 ──────────────────────── */
+    .quiz-choice-row { display: grid; gap: 10px; }
+    .quiz-choice-btn { display: block; width: 100%; text-align: left; padding: 14px 16px; font: inherit; font-size: 0.97rem; line-height: 1.6; color: var(--black); background: var(--white); border: 1px solid var(--gray-200); border-radius: 3px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+    .quiz-choice-btn:hover { border-color: var(--black); background: var(--gray-50); }
+    .quiz-choice-btn:disabled { cursor: not-allowed; color: var(--gray-400); }
 
     /* ── 研修モード：回答入力 ─────────────────────────── */
     #quiz-answer-input {
@@ -752,6 +768,13 @@
         <div style="margin-bottom:20px">                              <!-- 固定地域バッジの表示エリア -->
           <span class="region-badge">伊予弁（愛媛県）</span>          <!-- 常に伊予弁固定であることを示すバッジ -->
         </div>
+        <label class="field-label" for="quiz-format">出題形式</label>
+        <select id="quiz-format" class="quiz-select">
+          <option value="text">記述式（単語の意味を書く）</option>
+          <option value="meaning">2択・例文の意味を当てる</option>
+          <option value="scene">2択・使う場面を当てる</option>
+          <option value="mix">2択・意味と場面を交互に</option>
+        </select>
         <label class="field-label" for="quiz-count">出題数</label>
         <select id="quiz-count" class="quiz-select">
           <option value="5">5問</option>
@@ -783,14 +806,22 @@
           <div class="quiz-word" id="quiz-word"></div>
           <div class="quiz-question-text" id="quiz-question-text"></div>
         </div>
-        <label class="field-label" for="quiz-answer-input">あなたの回答</label>
-        <input
-          type="text"
-          id="quiz-answer-input"
-          placeholder="標準語で意味を入力してください"
-          onkeydown="if(event.key==='Enter' && !event.isComposing) submitAnswer()"
-        />
-        <button id="quiz-submit-btn" onclick="submitAnswer()">回答する</button>
+        <!-- 記述式の回答欄 -->
+        <div id="quiz-text-answer">
+          <label class="field-label" for="quiz-answer-input">あなたの回答</label>
+          <input
+            type="text"
+            id="quiz-answer-input"
+            placeholder="標準語で意味を入力してください"
+            onkeydown="if(event.key==='Enter' && !event.isComposing) submitAnswer()"
+          />
+          <button id="quiz-submit-btn" onclick="submitAnswer()">回答する</button>
+        </div>
+        <!-- 2択の選択肢（ボタンは JS で描画する） -->
+        <div id="quiz-choice-answer" style="display:none">
+          <div class="field-label">どちらが正しい？</div>
+          <div class="quiz-choice-row" id="quiz-choice-row"></div>
+        </div>
       </div>
 
       <!-- 採点結果 -->
@@ -805,7 +836,7 @@
           <div class="grade-value" id="grade-user-answer"></div>
         </div>
         <div class="grade-section">
-          <div class="grade-label">正しい意味</div>
+          <div class="grade-label" id="grade-correct-label">正しい意味</div>
           <div class="grade-value" id="grade-correct-meaning"></div>
         </div>
         <div class="grade-section">
@@ -859,6 +890,13 @@
           <div class="sample-buttons-row" id="convert-sample-row"></div> <!-- 例文ボタンをJSで描画するコンテナ -->
         </div>
 
+        <label class="field-label" for="convert-level">方言の濃さ</label> <!-- 変換の濃さの見出し -->
+        <select id="convert-level" class="quiz-select">           <!-- api/_dialect.js の CONVERT_LEVELS と同じ値 -->
+          <option value="light">軽め（語尾・文末だけ）</option>
+          <option value="normal" selected>ふつう</option>
+          <option value="strong">濃いめ（語彙も言い換える）</option>
+        </select>
+
         <textarea
           id="convert-input"
           placeholder="標準語の文章を入力してください（例：今日はありがとうございました）"
@@ -877,10 +915,18 @@
         <h2>変換結果</h2>                                         <!-- 結果カード見出し -->
         <div class="result-section">                             <!-- 伊予弁変換文セクション -->
           <div class="label">伊予弁</div>                         <!-- ラベル -->
-          <div class="value" id="convert-output"></div>           <!-- 変換文（ハイライト付き）を表示する -->
+          <div class="value" id="convert-output"></div>           <!-- 変換文（変わった箇所はチップ）を表示する -->
+          <div class="convert-hint">下線の箇所を押すと、伊予弁と標準語を切り替えられます</div>
+          <div class="convert-note" id="convert-note" style="display:none">
+            AIの区切りが原文と一部異なります。原文と見比べてからお使いください。
+          </div>
+          <div class="convert-actions">
+            <button class="sample-btn" id="convert-copy-btn" onclick="copyConvertedText()">この文をコピー</button>
+            <span class="convert-copy-status" id="convert-copy-status"></span>
+          </div>
         </div>
         <div class="result-section">                             <!-- 対応表セクション -->
-          <div class="label">変換箇所（標準語 → 伊予弁）</div>    <!-- ラベル -->
+          <div class="label">変換箇所（標準語 → 伊予弁・言い換え候補）</div> <!-- ラベル -->
           <div id="convert-mappings"></div>                       <!-- 各変換箇所の対応をJSで描画する -->
         </div>
       </div>
@@ -1273,7 +1319,11 @@
         const res = await fetch('/api/convert', {                 // 変換APIを呼び出す
           method: 'POST',
           headers: buildApiHeaders(),                             // 認証ヘッダーを付与する
-          body: JSON.stringify({ text, accessCode: getAccessCode() }), // 本文と アクセスコードを送る
+          body: JSON.stringify({                                  // 本文・濃さ・アクセスコードを送る
+            text,
+            level: document.getElementById('convert-level').value,
+            accessCode: getAccessCode(),
+          }),
         });
         const data = await res.json();                            // レスポンスJSONを取得する
         if (!res.ok) throw new Error(data.error || 'エラー: ' + res.status); // エラー時は例外を投げる
@@ -1286,30 +1336,43 @@
       }
     }
 
+    // 変換結果と、利用者が箇所ごとに選んだ内容（api/_normalize.js の segments に 1 対 1 で対応する）
+    // choices[i] は変わった区切りのときだけ { useDialect, pick }。pick は 0 = iyoben、1 以降 = alternatives[pick - 1]
+    let convertState = null;
+
+    // 区切り i の、今の選択での表示文字列
+    function segmentTextAt(i) {
+      const s = convertState.segments[i];
+      const c = convertState.choices[i];
+      if (s.text !== undefined) return s.text;
+      if (!c.useDialect) return s.standard;
+      return c.pick === 0 ? s.iyoben : s.alternatives[c.pick - 1];
+    }
+
+    // 今の選択で組み上がる本文
+    function composeConvertedText() {
+      return convertState.segments.map(function(_, i) { return segmentTextAt(i); }).join('');
+    }
+
     // 変換結果を描画する
     function displayConvertResult(result) {
-      const mappings = Array.isArray(result.mappings) ? result.mappings : []; // 対応表（配列でなければ空に）
+      const segments = (Array.isArray(result.segments) ? result.segments : []).map(function(s) {
+        if (s.text !== undefined) return { text: String(s.text) };
+        return {
+          standard:     String(s.standard || ''),
+          iyoben:       String(s.iyoben || ''),
+          alternatives: Array.isArray(s.alternatives) ? s.alternatives.map(String) : [],
+        };
+      });
+      convertState = {
+        segments: segments,
+        choices:  segments.map(function(s) { return s.text !== undefined ? null : { useDialect: true, pick: 0 }; }),
+      };
 
-      // 伊予弁変換文をハイライト付きで表示する
-      document.getElementById('convert-output').innerHTML =
-        buildHighlightedText(result.converted || '', mappings);
-
-      // 変換箇所の対応表を描画する
-      const mapEl = document.getElementById('convert-mappings');  // 対応表の描画先
-      mapEl.innerHTML = '';                                       // クリアする
-      if (mappings.length > 0) {
-        mappings.forEach(function(m) {                            // 各対応を1行ずつ描画する
-          const item = document.createElement('div');
-          item.className = 'convert-map-item';
-          item.innerHTML =
-            '<span class="convert-map-std">' + escapeHtml(m.standard || '') + '</span>' + // 標準語
-            '<span class="convert-map-arrow">→</span>' +                                    // 矢印
-            '<span class="convert-map-iyo">' + escapeHtml(m.iyoben || '') + '</span>';      // 伊予弁
-          mapEl.appendChild(item);
-        });
-      } else {
-        mapEl.innerHTML = '<div class="convert-map-empty">変換箇所はありませんでした。</div>'; // 変換なし
-      }
+      document.getElementById('convert-note').style.display = result.matchesInput === false ? 'block' : 'none';
+      document.getElementById('convert-copy-status').textContent = '';
+      renderConvertOutput();
+      renderConvertMappings();
 
       // 結果エリアをフェード表示してスクロールする
       const area = document.getElementById('convert-result-area');
@@ -1320,35 +1383,100 @@
       area.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    // 変換文の中で伊予弁に変化した箇所を <mark> で強調したHTMLを生成する
-    function buildHighlightedText(converted, mappings) {
-      // ハイライト対象の伊予弁表現を長い順に並べる（短い語が長い語の一部に誤マッチするのを防ぐ）
-      const terms = mappings
-        .map(function(m) { return m.iyoben || ''; })              // 伊予弁表現だけを取り出す
-        .filter(function(t) { return t.length > 0; })             // 空文字を除外する
-        .sort(function(a, b) { return b.length - a.length; });    // 文字数の降順にする
-
-      // 本文中の各伊予弁表現を、本文に現れないトークンへ一旦置換する
-      // マーカーには通常の文章に現れない制御文字（U+FFFC）を使う
-      const MARK = String.fromCharCode(0xFFFC);                   // トークンを挟むユニークな1文字
-      let text = converted;                                       // 作業用の本文
-      const tokens = [];                                          // トークンと元表現の対応を保持する
-      terms.forEach(function(term, i) {
-        if (text.indexOf(term) === -1) return;                    // 本文に無ければスキップ
-        const token = MARK + i + MARK;                            // ユニークなトークン（本文に出現しない）
-        text = text.replace(term, token);                         // 最初の1箇所だけトークン化する
-        tokens.push({ token: token, term: term });                // 後で復元するために記録する
+    // 本文を描画する。変わった区切りはチップ（押すと伊予弁 ⇄ 標準語）にする
+    function renderConvertOutput() {
+      const out = document.getElementById('convert-output');
+      out.innerHTML = '';
+      convertState.segments.forEach(function(s, i) {
+        if (s.text !== undefined) {                               // 変わらない部分は文字のまま
+          out.appendChild(document.createTextNode(s.text));
+          return;
+        }
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'convert-chip' + (convertState.choices[i].useDialect ? '' : ' is-standard');
+        chip.textContent = segmentTextAt(i);
+        chip.title = convertState.choices[i].useDialect ? '標準語「' + s.standard + '」に戻す' : '伊予弁にする';
+        chip.addEventListener('click', function() { setSegmentChoice(i, { useDialect: !convertState.choices[i].useDialect }); });
+        out.appendChild(chip);
       });
+    }
 
-      // 本文をHTMLエスケープしてから、トークンをハイライトspanへ復元する
-      let html = escapeHtml(text);                                // XSS対策でエスケープする
-      tokens.forEach(function(t) {
-        html = html.replace(
-          t.token,                                                // トークンを
-          '<mark class="convert-highlight">' + escapeHtml(t.term) + '</mark>' // ハイライトspanに戻す
-        );
+    // 対応表を描画する。行ごとに「伊予弁にする」チェックと、候補があれば言い換えのセレクト
+    function renderConvertMappings() {
+      const mapEl = document.getElementById('convert-mappings');
+      mapEl.innerHTML = '';
+      let count = 0;
+      convertState.segments.forEach(function(s, i) {
+        if (s.text !== undefined) return;
+        count++;
+        const c = convertState.choices[i];
+        const item = document.createElement('div');
+        item.className = 'convert-map-item' + (c.useDialect ? '' : ' is-standard');
+
+        const toggle = document.createElement('label');           // 伊予弁にする／標準語のまま
+        toggle.className = 'convert-map-toggle';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.checked = c.useDialect;
+        box.addEventListener('change', function() { setSegmentChoice(i, { useDialect: box.checked }); });
+        toggle.appendChild(box);
+        toggle.appendChild(document.createTextNode('伊予弁'));
+
+        const std = document.createElement('span');
+        std.className = 'convert-map-std';
+        std.textContent = s.standard;
+        const arrow = document.createElement('span');
+        arrow.className = 'convert-map-arrow';
+        arrow.textContent = '→';
+
+        let iyo;
+        if (s.alternatives.length > 0) {                          // 候補があれば選べるようにする
+          iyo = document.createElement('select');
+          iyo.className = 'convert-map-select convert-map-iyo';
+          [s.iyoben].concat(s.alternatives).forEach(function(v, k) {
+            const opt = document.createElement('option');
+            opt.value = String(k);
+            opt.textContent = v;
+            iyo.appendChild(opt);
+          });
+          iyo.value = String(c.pick);
+          iyo.addEventListener('change', function() {
+            setSegmentChoice(i, { pick: parseInt(iyo.value, 10), useDialect: true });
+          });
+        } else {
+          iyo = document.createElement('span');
+          iyo.className = 'convert-map-iyo';
+          iyo.textContent = s.iyoben;
+        }
+
+        [toggle, std, arrow, iyo].forEach(function(el) { item.appendChild(el); });
+        mapEl.appendChild(item);
       });
-      return html;
+      if (count === 0) {
+        // 無理に方言へ寄せない方針なので、変わらないのは正常な結果として伝える
+        mapEl.innerHTML = '<div class="convert-map-empty">標準語のままで自然な文なので、変換した箇所はありません。</div>';
+      }
+    }
+
+    // 区切り i の選択を変えて、本文と対応表を描き直す
+    function setSegmentChoice(i, patch) {
+      Object.assign(convertState.choices[i], patch);
+      document.getElementById('convert-copy-status').textContent = '';
+      renderConvertOutput();
+      renderConvertMappings();
+    }
+
+    // 今の選択で組み上がった本文をクリップボードへコピーする
+    async function copyConvertedText() {
+      if (!convertState) return;
+      const status = document.getElementById('convert-copy-status');
+      try {
+        await navigator.clipboard.writeText(composeConvertedText());
+        status.textContent = 'コピーしました';
+      } catch {
+        status.textContent = 'コピーできませんでした。本文を選択してコピーしてください';
+      }
     }
 
     // 変換モードのローディング表示切替
@@ -1388,8 +1516,10 @@
       }
       const region = FIXED_REGION;                                     // 研修モードも地域を伊予弁に固定する
       const total  = parseInt(document.getElementById('quiz-count').value, 10);  // 出題数を取得する
+      const format = document.getElementById('quiz-format').value;              // text / meaning / scene / mix
       quizState = {
         region,
+        format,
         totalQuestions: total,
         currentIndex:   0,
         usedWords:      [],
@@ -1402,13 +1532,23 @@
       await loadNextQuestion();
     }
 
+    // 2択の出題の種類（meaning / scene）。記述式なら null。ミックスは 5 問でも両方出るように交互にする
+    function choiceKindFor(index) {
+      const f = quizState.format;
+      if (f === 'meaning' || f === 'scene') return f;
+      if (f === 'mix') return index % 2 === 0 ? 'meaning' : 'scene';
+      return null;
+    }
+
     async function loadNextQuestion() {
       try {
+        const kind = choiceKindFor(quizState.currentIndex);
         const res = await fetch('/api/quiz', {
           method: 'POST',
           headers: buildApiHeaders(),
           body: JSON.stringify({
-            action:     'generate',
+            action:     kind ? 'generate_choice' : 'generate',
+            kind:       kind || undefined,
             region:     quizState.region,
             usedWords:  quizState.usedWords,
             accessCode: getAccessCode(),
@@ -1417,7 +1557,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'APIエラー');
         quizState.currentQuestion = data;
-        quizState.usedWords.push(data.word);
+        quizState.usedWords.push(kind ? data.sentence : data.word);
         showQuestion();
       } catch (err) {
         showQuizPhase('setup');
@@ -1431,12 +1571,59 @@
       const tot = quizState.totalQuestions;
       document.getElementById('quiz-progress-fill').style.width = ((num - 1) / tot * 100) + '%';
       document.getElementById('quiz-progress-text').textContent = '問題 ' + num + ' / ' + tot;
+      const isChoice = Array.isArray(q.choices);                         // 2択の出題か
+      const wordEl   = document.getElementById('quiz-word');
       document.getElementById('quiz-region-label').textContent  = q.region   || '';
-      document.getElementById('quiz-word').textContent          = q.word     || '';
+      wordEl.textContent = (isChoice ? q.sentence : q.word) || '';
+      wordEl.classList.toggle('is-sentence', isChoice);
       document.getElementById('quiz-question-text').textContent = q.question || '';
+      document.getElementById('quiz-text-answer').style.display   = isChoice ? 'none' : 'block';
+      document.getElementById('quiz-choice-answer').style.display = isChoice ? 'block' : 'none';
+
+      if (isChoice) {
+        const row = document.getElementById('quiz-choice-row');
+        row.innerHTML = '';
+        q.choices.forEach(function(choice, i) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'quiz-choice-btn';
+          btn.textContent = (i === 0 ? 'A. ' : 'B. ') + choice;
+          btn.addEventListener('click', function() { submitChoice(i); });
+          row.appendChild(btn);
+        });
+        showQuizPhase('question');
+        return;
+      }
       document.getElementById('quiz-answer-input').value = '';
       showQuizPhase('question');
       setTimeout(function() { document.getElementById('quiz-answer-input').focus(); }, 80);
+    }
+
+    // 2択の回答。正解は出題の応答に入っているので、採点 API は呼ばずにその場で判定する
+    function submitChoice(index) {
+      const q = quizState.currentQuestion;
+      document.querySelectorAll('.quiz-choice-btn').forEach(function(b) { b.disabled = true; }); // 二度押し防止
+      const grade = {
+        result:         index === q.answerIndex ? 'correct' : 'incorrect',
+        correctMeaning: q.choices[q.answerIndex],
+        explanation:    q.explanation,
+        announcerTips:  q.announcerTips,
+      };
+      quizState.answers.push({
+        format:         'choice',
+        kind:           q.kind,
+        word:           q.sentence,                                    // 振り返り・記録では例文を出す
+        region:         q.region,
+        question:       q.question,
+        choices:        q.choices,
+        userChoice:     index,
+        userAnswer:     q.choices[index],
+        result:         grade.result,
+        correctMeaning: grade.correctMeaning,
+        explanation:    grade.explanation,
+        announcerTips:  grade.announcerTips,
+      });
+      showGrade(grade, q.choices[index]);
     }
 
     async function submitAnswer() {
@@ -1460,6 +1647,7 @@
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'APIエラー');
         quizState.answers.push({
+          format:         'text',
           word:           quizState.currentQuestion.word,
           region:         quizState.currentQuestion.region,
           question:       quizState.currentQuestion.question,
@@ -1487,6 +1675,10 @@
       const badge = document.getElementById('grade-badge');
       badge.textContent = c.label;
       badge.className   = 'grade-badge ' + c.cls;
+      // 「使う場面」の2択は意味ではなく場面が正解なので、見出しを変える
+      const q = quizState.currentQuestion;
+      document.getElementById('grade-correct-label').textContent =
+        q && q.kind === 'scene' ? '正しい場面' : '正しい意味';
       document.getElementById('grade-user-answer').textContent     = '「' + userAnswer + '」';
       document.getElementById('grade-correct-meaning').textContent = grade.correctMeaning || '情報なし';
       document.getElementById('grade-explanation').textContent     = grade.explanation    || '情報なし';
