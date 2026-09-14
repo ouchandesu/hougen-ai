@@ -1,1 +1,11 @@
 .vercel
+
+# 秘密は Vercel 環境変数だけに置く。手元に作られても（vercel env pull など）コミットしない
+.env
+.env.*
+!.env.example
+
+# Windows では .claude/rules と .claude/skills をジャンクションで張る（scripts/link-agents.js）。
+# git にはシンボリックリンクとして記録済みなので、ジャンクション越しの中身を二重に拾わない
+.claude/rules/
+.claude/skills/

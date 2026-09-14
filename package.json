@@ -1,4 +1,8 @@
 {
+  "private": true,
+  "scripts": {
+    "link": "node scripts/link-agents.js"
+  },
   "engines": {
     "node": ">=18"
   }
