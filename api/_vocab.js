@@ -1,6 +1,7 @@
-// 研修クイズの出題に使う語の一覧。方言の資料で意味を裏付けた語だけを置く
-// Supabase の監修済み辞書（ADR 0004）ができるまでの仮置き。語を足すときは sources に裏付けの URL を必ず付ける
-// 形は scripts/checks/vocab.test.js が固定している
+// 伊予弁の語の一覧（リポジトリ内の予備）。方言の資料で意味を裏付けた語だけを置く
+// 正は Supabase の辞書（ADR 0004、api/_dictionary.js が読む）。この一覧は、辞書の初期データの元
+// （npm run dict:seed-sql）と、Supabase が使えないときの予備として残している。語は管理画面から足す
+// 形は scripts/checks/vocab.test.js が api/_dictionary.js の validateEntry で固定している
 
 // 今の使われ方。資料に記述が無いものは unknown（画面には何も出さない）
 const USAGE_LABELS = {
@@ -181,8 +182,8 @@ function publicEntry(entry) {
   };
 }
 
-function findEntry(id) {
-  return VOCAB.find((e) => e.id === id) || null;
+function findEntry(id, vocab = VOCAB) {
+  return vocab.find((e) => e.id === id) || null;
 }
 
 // 出題済みでない語から 1 つ選ぶ。全部出題済みなら一覧全体から選び直す

@@ -1,24 +1,13 @@
 // Vercelサーバーレス関数：方言クイズ出題（generate / generate_choice）と採点（grade）
 // 認証：Supabaseトークン or ACCESS_CODE
-// 出題する語はモデルに選ばせず、資料で裏付けた一覧（_vocab.js）からサーバーが選ぶ
+// 出題する語はモデルに選ばせず、資料で裏付けた辞書（公開済みの語）からサーバーが選ぶ
 
 const { verifyAuth } = require('./_auth');
 const { logUsage }   = require('./_log');
 const { TARGET_REGION, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
 const { CHOICE_KINDS, normalizeChoiceQuestion } = require('./_normalize');  // 2択の出題を応答の形へ整える
-const { publicEntry, findEntry, pickEntry, entryForPrompt } = require('./_vocab'); // 出題に使う語の一覧
-
-// 資料の意味を「正」として扱わせる指示（2択の出題と採点で共通）
-function vocabRule(entry, R) {
-  return `【出題の語（資料で裏付けた情報。これを正とする）】
-${entryForPrompt(entry)}
-- この語の意味は上の「意味」だけを正とし、資料に無い別の意味・用法・語源を作らないでください。
-- 「今の使われ方」が昔の言葉・年配の人の言葉とされている場合は、そのことを解説で伝えてください。
-- 上の情報で足りない点（細かいニュアンスなど）に確信が無ければ、解説で断定せず触れないでください。
-- 他の${R.dialect}の表現を足す場合も、意味に確信があるものに限ってください。
-- 出題の語は、資料の表記のまま書いてください（清音・濁音などを変えない）。
-- 解説とアナウンサーの注意点は標準語で書いてください（方言の語や例文を引用する部分を除く）。`;
-}
+const { publicEntry, findEntry, pickEntry } = require('./_vocab');          // 語の選び方と画面に返す形
+const { loadPublishedEntries, vocabRule } = require('./_dictionary');       // 辞書の読み出しと資料を正とする指示
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -32,10 +21,11 @@ module.exports = async function handler(req, res) {
   }
 
   const { action, region, usedIds, vocabId, word, question, userAnswer, kind } = req.body;
+  const { entries } = await loadPublishedEntries();   // 公開済みの語（Supabase が使えなければ予備の一覧）
 
-  // ── 記述式の出題：一覧から語を選んで返すだけ（モデルは呼ばない） ──────
+  // ── 記述式の出題：辞書から語を選んで返すだけ（モデルは呼ばない） ──────
   if (action === 'generate') {
-    const entry = pickEntry(usedIds);
+    const entry = pickEntry(usedIds, Math.random, entries);
     await logUsage({
       userId:     auth.userId,
       authMethod: auth.method,
@@ -78,12 +68,12 @@ module.exports = async function handler(req, res) {
           wrong:    `この例文を使うと不自然、または意味が通じない場面・話し相手の説明（correct と同じくらいの長さ・言い回し）`,
         };
 
-    entry = pickEntry(usedIds);
+    entry = pickEntry(usedIds, Math.random, entries);
     const wrongHint = kind === 'meaning'
       ? '誤りの選択肢は、出題の語の意味を取り違えた訳にする（出題の語を標準語の似た言葉と勘違いした場合など）'
       : '誤りの選択肢は、出題の語の意味からすると不自然な場面にする';
     prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
-新人アナウンサー向けに、下の「出題の語」を使った${R.dialect}の例文で、2択クイズを1問作成してください。
+新人アナウンサー向けに、下の「辞書の語」（以下、出題の語）を使った${R.dialect}の例文で、2択クイズを1問作成してください。
 
 ${vocabRule(entry, R)}
 
@@ -116,7 +106,7 @@ ${jsonOnlyRule()}
     if (!word || !userAnswer) {
       return res.status(400).json({ error: '採点に必要なパラメータが不足しています（word / userAnswer）' });
     }
-    entry = findEntry(vocabId);   // 一覧に無い id（古い画面から来た回答など）は、資料の情報なしで採点する
+    entry = findEntry(vocabId, entries);   // 辞書に無い id（非公開にした語など）は、資料の情報なしで採点する
 
     // 対象方言の専門家として採点・解説させる。一覧の語なら資料の意味を正として採点する
     prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。以下のクイズへの回答を採点し、詳しく解説してください。
@@ -184,7 +174,7 @@ ${jsonOnlyRule()}
       result = JSON.parse(cleaned);
       if (action === 'generate_choice') result = normalizeChoiceQuestion(result, kind);
       if (entry) {
-        result.vocab = publicEntry(entry);                          // 出題の語と資料の情報は、モデルでなく一覧から返す
+        result.vocab = publicEntry(entry);                          // 出題の語と資料の情報は、モデルでなく辞書から返す
         result.region = entry.region;                               // 地域は資料の記述だけを出す（無ければ空。モデルの推測は出さない）
         if (action === 'grade') result.correctMeaning = entry.meaning; // 正しい意味は資料の意味で上書きする
       }

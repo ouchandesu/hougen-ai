@@ -551,6 +551,12 @@
     .vocab-note    { font-size: 0.85rem; line-height: 1.6; color: var(--gray-600); }
     .vocab-sources { font-size: 0.75rem; color: var(--gray-400); display: flex; gap: 4px 10px; flex-wrap: wrap; }
     .vocab-sources a { color: var(--gray-600); }
+    .vocab-broadcast       { border-top: 1px solid var(--gray-200); margin-top: 6px; padding-top: 10px; display: grid; gap: 10px; }
+    .vocab-broadcast-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; color: var(--gray-600); }
+    .vocab-broadcast-item  { display: grid; gap: 2px; font-size: 0.88rem; }
+    .vocab-broadcast-item a { font-size: 0.78rem; color: var(--gray-600); }
+    .vocab-broadcast-meta  { font-size: 0.72rem; color: var(--gray-400); font-variant-numeric: tabular-nums; }
+    .vocab-broadcast-text  { color: var(--black); line-height: 1.6; }
 
     /* ── 研修モード：学習記録 ─────────────────────────── */
     .record-item { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--gray-100); font-size: 0.86rem; }
@@ -733,6 +739,11 @@
 
       <div id="result-area" class="card">
         <h2>調査結果</h2>
+        <!-- 辞書にある語だけ出る。資料の情報と放送の用例（AI の生成物ではない） -->
+        <div class="result-section" id="result-vocab-section" style="display:none">
+          <div class="label">資料より</div>
+          <div class="vocab-card" id="result-vocab"></div>
+        </div>
         <div class="result-grid-wrapper">
           <div class="result-section">
             <div class="label">使われる地域</div>
@@ -1227,6 +1238,7 @@
     }
 
     function displayResult(result) {
+      fillVocabCard('result-vocab-section', 'result-vocab', result.vocab || null, result.broadcastExamples || []);
       document.getElementById('result-region').innerHTML =
         '<span class="region-badge">' + escapeHtml(result.region || '不明') + '</span>';
       document.getElementById('result-reading').innerHTML =
@@ -1717,10 +1729,16 @@
       showQuizPhase('grade');
     }
 
-    // 採点カードに、出題の語の資料の情報（語・意味・使われ方・補足・出典）を描く。モデルの生成物ではない
+    // 採点カードに、出題の語の資料の情報を描く
     function renderVocabCard(vocab) {
-      const section = document.getElementById('grade-vocab-section');
-      const card    = document.getElementById('grade-vocab');
+      fillVocabCard('grade-vocab-section', 'grade-vocab', vocab, []);
+    }
+
+    // 辞書の語の資料の情報（語・意味・使われ方・補足・出典）と放送での用例を描く。モデルの生成物ではない
+    // 研修の採点カードと調べるモードの「資料より」で共用する
+    function fillVocabCard(sectionId, cardId, vocab, broadcastExamples) {
+      const section = document.getElementById(sectionId);
+      const card    = document.getElementById(cardId);
       card.innerHTML = '';
       section.style.display = vocab ? 'block' : 'none';
       if (!vocab) return;
@@ -1731,6 +1749,14 @@
         if (text) node.textContent = text;
         return node;
       };
+      const link = function(url, text) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = text;
+        return a;
+      };
       const head = el('div', 'vocab-head');
       head.appendChild(el('span', 'vocab-word', vocab.word));
       [vocab.region, vocab.usageLabel].filter(Boolean).forEach(function(t) { head.appendChild(el('span', 'vocab-pill', t)); });
@@ -1740,15 +1766,30 @@
 
       const src = el('div', 'vocab-sources', '出典：');
       (vocab.sources || []).forEach(function(url) {
-        if (!/^https?:\/\//.test(url)) return;                          // 一覧は URL だけを持つ。念のため http(s) 以外は出さない
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.textContent = new URL(url).hostname;
-        src.appendChild(a);
+        if (!/^https?:\/\//.test(url)) return;                          // 辞書は URL だけを持つ。念のため http(s) 以外は出さない
+        src.appendChild(link(url, new URL(url).hostname));
       });
       card.appendChild(src);
+
+      // 放送での用例（放送日の新しい順）。件数と期間も添える
+      const examples = Array.isArray(broadcastExamples) ? broadcastExamples : [];
+      if (examples.length === 0) return;
+      const box = el('div', 'vocab-broadcast');
+      const dates = examples.map(function(x) { return x.airedOn; }).filter(Boolean).sort();
+      box.appendChild(el('div', 'vocab-broadcast-title',
+        '放送での用例 ' + examples.length + ' 件' + (dates.length ? '（' + dates[0] + ' 〜 ' + dates[dates.length - 1] + '）' : '')));
+      examples.forEach(function(x) {
+        const item = el('div', 'vocab-broadcast-item');
+        item.appendChild(el('div', 'vocab-broadcast-meta', [x.airedOn, x.program].filter(Boolean).join(' ・ ')));
+        item.appendChild(el('div', 'vocab-broadcast-text', '「' + x.transcript + '」'));
+        if (x.standard) item.appendChild(el('div', 'vocab-note', x.standard));
+        if (x.clipUrl && /^https?:\/\//.test(x.clipUrl)) {
+          const label = '切り抜きを見る' + (Number.isInteger(x.clipStartSec) ? '（' + x.clipStartSec + ' 秒から）' : '');
+          item.appendChild(link(x.clipUrl, label));
+        }
+        box.appendChild(item);
+      });
+      card.appendChild(box);
     }
 
     function nextQuestion() {
