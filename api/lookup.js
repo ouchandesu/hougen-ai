@@ -3,6 +3,7 @@
 
 const { verifyAuth } = require('./_auth');
 const { logUsage }   = require('./_log');
+const { TARGET_REGION, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,32 +28,28 @@ module.exports = async function handler(req, res) {
   }
 
   // ── プロンプト構築 ─────────────────────────────────────────
-  // 伊予弁に完全特化した指示文（他地域の方言は扱わない）
-  const prompt = `入力された言葉について、愛媛県の伊予弁として
-回答してください。他の地域の方言は含めないでください。
-もし伊予弁ではない言葉が入力された場合は、
-伊予弁での類似表現を提案してください。
+  // 対象方言に完全特化した指示文（共通ルールは _dialect.js に集約）
+  const R = TARGET_REGION;
+  const prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
+以下の言葉について、アナウンサーが学習するために必要な情報を教えてください。
 
-回答の中で他の地域の方言との比較や
-類似表現の紹介をしないでください。
-愛媛県の伊予弁としての情報のみを返してください。
-使われる地域の欄には愛媛県内の地域名のみを
-記載してください。
+${purityRule()}
 
-あなたは愛媛県の伊予弁の専門家です。以下の言葉について、アナウンサーが学習するために必要な情報を教えてください。
+「使われる主な地域」の欄には${R.prefecture}内の地域名のみを記載してください。
+入力された言葉が${R.dialect}ではない場合は、${R.dialect}での類似表現を提案してください。
+
+${jsonOnlyRule()}
 
 言葉：「${dialect.trim()}」
 
-以下のJSON形式で回答してください。JSONのみを返し、余分なテキストは含めないでください。
-
 {
-  "region": "使われる主な地域（愛媛県内の地域名など）",
+  "region": "使われる主な地域（${R.prefecture}内の地域名など）",
   "reading": "単語・表現のひらがなでの読み方（ふりがな）",
   "meaning": "標準語での意味（わかりやすく説明）",
   "nuance": "使われる場面やニュアンス（感情、丁寧さ、使用シーンなど）",
   "examples": [
-    { "dialect": "伊予弁を使った例文", "standard": "標準語訳" },
-    { "dialect": "伊予弁を使った別の例文", "standard": "標準語訳" }
+    { "dialect": "${R.dialect}を使った例文", "standard": "標準語訳" },
+    { "dialect": "${R.dialect}を使った別の例文", "standard": "標準語訳" }
   ],
   "announcer_points": {
     "broadcast_use": "放送での使用可否（使える場面・使えない場面・使う際の注意事項を含めて説明）",
@@ -61,7 +58,7 @@ module.exports = async function handler(req, res) {
   }
 }
 
-もし入力された言葉が伊予弁ではない場合は、meaning に伊予弁での類似表現の提案を入力してください。`;
+もし入力された言葉が${R.dialect}ではない場合は、meaning に${R.dialect}での類似表現の提案を入力してください。`;
 
   // ── Anthropic API 呼び出し ─────────────────────────────────
   try {

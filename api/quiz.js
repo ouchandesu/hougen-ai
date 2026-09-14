@@ -3,6 +3,7 @@
 
 const { verifyAuth } = require('./_auth');
 const { logUsage }   = require('./_log');
+const { TARGET_REGION, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -23,6 +24,7 @@ module.exports = async function handler(req, res) {
   }
 
   // ── アクション分岐 ─────────────────────────────────────────
+  const R = TARGET_REGION;   // 対象地域（将来の都道府県切替は _dialect.js 側で行う）
   let prompt;
 
   if (action === 'generate') {
@@ -31,25 +33,24 @@ module.exports = async function handler(req, res) {
       ? `\n以下の単語・表現はすでに出題済みなので絶対に使わないでください：${usedWords.join('、')}`
       : '';
 
-    // 伊予弁のみに限定した出題プロンプト（他地域の方言を混入させない）
-    prompt = `愛媛県の伊予弁のみを出題してください。
-他の地域（広島・岡山・香川など）の方言は
-絶対に含めないでください。
-出題する方言は愛媛県で実際に使われている
-伊予弁の表現だけに限定してください。
+    // 対象方言のみに限定した出題プロンプト（共通ルールは _dialect.js に集約）
+    prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
+${R.dialect}から1つ単語または短い例文を選び、新人アナウンサー向けのクイズを1問作成してください。${avoidStr}
 
-あなたは愛媛県の伊予弁の専門家です。伊予弁から1つ単語または短い例文を選び、新人アナウンサー向けのクイズを1問作成してください。${avoidStr}
+${purityRule()}
+
+出題する表現は${R.prefecture}で実際に使われている${R.dialect}だけに限定してください。
 
 選ぶ方言の条件：
-- アナウンサーが取材や放送で遭遇しうるリアルな伊予弁の表現
+- アナウンサーが取材や放送で遭遇しうるリアルな${R.dialect}の表現
 - 標準語話者が意味を推測しにくいもの（やや難しめ）
 
-以下のJSON形式のみで回答してください。前後の説明文・コードブロックは不要です。
+${jsonOnlyRule()}
 
 {
-  "word": "出題する伊予弁の単語または短い例文（伊予弁のまま・標準語訳なし）",
-  "region": "この伊予弁が主に使われる愛媛県内の地域名",
-  "question": "「（その伊予弁）」とはどういう意味でしょうか？"
+  "word": "出題する${R.dialect}の単語または短い例文（${R.dialect}のまま・標準語訳なし）",
+  "region": "この${R.dialect}が主に使われる${R.prefecture}内の地域名",
+  "question": "「（その${R.dialect}）」とはどういう意味でしょうか？"
 }`;
 
   } else if (action === 'grade') {
@@ -57,8 +58,10 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: '採点に必要なパラメータが不足しています（word / userAnswer）' });
     }
 
-    // 伊予弁の専門家として採点・解説させる
-    prompt = `あなたは愛媛県の伊予弁の専門家です。以下のクイズへの回答を採点し、詳しく解説してください。
+    // 対象方言の専門家として採点・解説させる
+    prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。以下のクイズへの回答を採点し、詳しく解説してください。
+
+${purityRule()}
 
 方言：「${word}」
 問い：${question || 'この方言の意味は？'}
@@ -69,7 +72,7 @@ module.exports = async function handler(req, res) {
 - close（惜しい）  ：方向性は合っているが説明が不完全・部分的
 - incorrect（不正解）：意味が大きく異なる、または的外れ・空欄に近い
 
-以下のJSON形式のみで回答してください。前後の説明文・コードブロックは不要です。
+${jsonOnlyRule()}
 
 {
   "result": "correct または close または incorrect のいずれか1語",

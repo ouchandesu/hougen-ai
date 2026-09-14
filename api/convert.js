@@ -3,6 +3,7 @@
 
 const { verifyAuth } = require('./_auth');   // 認証ユーティリティを読み込む
 const { logUsage }   = require('./_log');    // 利用ログ記録ユーティリティを読み込む
+const { TARGET_REGION, naturalnessRule, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {                                    // POST以外は受け付けない
@@ -27,26 +28,30 @@ module.exports = async function handler(req, res) {
   }
 
   // ── プロンプト構築 ─────────────────────────────────────────
-  // 標準語→伊予弁変換の指示文（伊予弁のみ・他地域の方言は使わない）
-  const prompt = `以下の標準語の文章を伊予弁に変換してください。
-変換した部分が分かるように、
-元の標準語と対応する伊予弁を
-JSON形式で返してください。
-愛媛県の伊予弁のみを使用し、
-他の地域の方言は使わないでください。
+  // 標準語→対象方言への変換指示文
+  // 共通ルール（自然さの優先・純度管理・出力形式）は _dialect.js に集約している
+  const R = TARGET_REGION;
+  const prompt = `あなたは${R.prefecture}の${R.dialect}に精通した方言翻訳アシスタントです。
+以下の標準語の文章を${R.dialect}に変換してください。
+
+${naturalnessRule()}
+
+${purityRule()}
+
+${jsonOnlyRule()}
 
 標準語の文章：「${text.trim()}」
 
-以下のJSON形式のみで回答してください。前後の説明文・コードブロックは不要です。
-
 {
-  "converted": "文章全体を伊予弁に変換したもの",
+  "converted": "文章全体を${R.dialect}に変換したもの（変える必要のない部分は標準語のまま）",
   "mappings": [
-    { "standard": "変換元の標準語の部分", "iyoben": "対応する伊予弁の表現" }
+    { "standard": "変換元の標準語の部分", "iyoben": "対応する${R.dialect}の表現" }
   ]
 }
 
-mappings には、標準語から伊予弁に変化した箇所のみを列挙してください。変化しなかった部分は含めないでください。`;
+mappings には、標準語から${R.dialect}に変化した箇所のみを列挙してください。
+変化しなかった部分は含めないでください。
+無理に変換箇所を増やそうとせず、自然に変わる箇所だけを対象にしてください。`;
 
   // ── Anthropic API 呼び出し ─────────────────────────────────
   try {
