@@ -40,7 +40,9 @@ test('publicEntry が PUBLIC_ENTRY_KEYS と同じキーを返す', () => {
 test('応答のキーを index.html が読んでいる', () => {
   const html = read('index.html');
   const { PUBLIC_ENTRY_KEYS } = require('../../api/_vocab');
-  const unread = [...CHOICE_RESPONSE_KEYS, ...CONVERT_RESPONSE_KEYS, ...SEGMENT_MODEL_KEYS, 'vocab', ...PUBLIC_ENTRY_KEYS]
+  const { BROADCAST_EXAMPLE_KEYS } = require('../../api/_dictionary');
+  const unread = [...CHOICE_RESPONSE_KEYS, ...CONVERT_RESPONSE_KEYS, ...SEGMENT_MODEL_KEYS, 'vocab', ...PUBLIC_ENTRY_KEYS,
+    'broadcastExamples', ...BROADCAST_EXAMPLE_KEYS]
     .filter((k) => !new RegExp(`\\.${k}\\b`).test(html));
   assert.deepStrictEqual(unread, []);
 });

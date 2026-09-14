@@ -5,22 +5,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const { USAGE_LABELS, VOCAB, publicEntry, pickEntry, entryForPrompt, findEntry } = require('../../api/_vocab');
-
-const isUrl = (s) => typeof s === 'string' && /^https?:\/\/\S+$/.test(s);
-const nonEmpty = (s) => typeof s === 'string' && s.trim().length > 0;
+const { validateEntry } = require('../../api/_dictionary');
 
 test('一覧が空でない', () => {
   assert.ok(VOCAB.length >= 20, `語が ${VOCAB.length} 件しかない`);
 });
 
-test('各語が id・語・意味・使われ方・裏付けの URL を持つ', () => {
-  const broken = VOCAB.filter((e) => !(
-    /^[a-z0-9-]+$/.test(e.id) && nonEmpty(e.word) && nonEmpty(e.meaning)
-    && typeof e.region === 'string' && typeof e.note === 'string'
-    && Object.hasOwn(USAGE_LABELS, e.usage)
-    && Array.isArray(e.sources) && e.sources.length >= 1 && e.sources.every(isUrl)
-    && Array.isArray(e.examples) && e.examples.every((x) => nonEmpty(x.dialect) && nonEmpty(x.standard) && isUrl(x.source))
-  )).map((e) => e.id || e.word);
+test('各語が辞書の検証（出典 2 つ以上など）を通る', () => {
+  // 管理 API と同じ validateEntry を使う。一覧は辞書の初期データの元なので、同じ決まりを満たす
+  const broken = VOCAB.map((e) => [e.id || e.word, validateEntry(e)]).filter(([, errors]) => errors.length);
   assert.deepStrictEqual(broken, []);
 });
 

@@ -4,6 +4,8 @@
 const { verifyAuth } = require('./_auth');
 const { logUsage }   = require('./_log');
 const { TARGET_REGION, purityRule, jsonOnlyRule } = require('./_dialect'); // 対象地域と共通ルールを読み込む
+const { publicEntry } = require('./_vocab');                                  // 画面に返す語の形（研修と同じ）
+const { loadPublishedEntries, loadBroadcastExamples, findByWord, vocabRule } = require('./_dictionary'); // 辞書（ADR 0004）
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,11 +29,19 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'サーバー設定エラー：ANTHROPIC_API_KEY が設定されていません' });
   }
 
+  // ── 辞書との照合 ───────────────────────────────────────────
+  // 辞書（公開済みの語）にあれば、資料の意味を正としてモデルに渡し、画面にも資料と放送の用例を返す
+  const { entries } = await loadPublishedEntries();
+  const entry = findByWord(entries, dialect);
+  const broadcastExamples = entry ? await loadBroadcastExamples(entry.id) : [];
+
   // ── プロンプト構築 ─────────────────────────────────────────
   // 対象方言に完全特化した指示文（共通ルールは _dialect.js に集約）
   const R = TARGET_REGION;
   const prompt = `あなたは${R.prefecture}の${R.dialect}の専門家です。
 以下の言葉について、アナウンサーが学習するために必要な情報を教えてください。
+
+${entry ? vocabRule(entry, R) : ''}
 
 ${purityRule()}
 
@@ -92,6 +102,10 @@ ${jsonOnlyRule()}
       cleaned = match ? match[0] : cleaned;
     }
     const result = JSON.parse(cleaned);
+    if (entry) {
+      result.vocab = publicEntry(entry);            // 資料の情報はモデルでなく辞書から返す
+      result.broadcastExamples = broadcastExamples; // 放送での用例（放送日の新しい順）
+    }
 
     // ── 利用ログを記録してからレスポンスを返す ──────────────
     // logUsage は失敗しても例外を外に出さないため安全に await できる

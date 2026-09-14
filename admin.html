@@ -229,6 +229,31 @@
       text-align: right;
     }
 
+    /* ── 辞書 ─────────────────────────────────────────── */
+    .dict-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .dict-toolbar .dict-input { flex: 1 1 200px; }
+    .dict-input   { width: 100%; padding: 8px 10px; border: 1px solid var(--gray-200); border-radius: 3px; font: inherit; font-size: 0.88rem; background: var(--white); color: var(--black); }
+    .dict-input:focus { outline: none; border-color: var(--black); }
+    .dict-btn     { padding: 8px 16px; border: 1px solid var(--black); border-radius: 3px; background: var(--black); color: var(--white); font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .dict-btn:disabled { background: var(--gray-400); border-color: var(--gray-400); cursor: not-allowed; }
+    .dict-btn-sub { background: var(--white); color: var(--black); }
+    .dict-btn-small { padding: 3px 10px; font-size: 0.75rem; }
+    .dict-count   { font-size: 0.78rem; color: var(--gray-600); }
+    .dict-help    { font-size: 0.78rem; color: var(--gray-600); line-height: 1.6; margin-bottom: 12px; }
+    .dict-error   { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 3px; padding: 10px 14px; font-size: 0.85rem; margin-bottom: 12px; }
+    .dict-error-list { list-style: none; color: #b91c1c; font-size: 0.82rem; line-height: 1.7; margin: 10px 0; }
+    .dict-form    { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+    .dict-field   { display: grid; gap: 4px; font-size: 0.75rem; font-weight: 600; color: var(--gray-600); }
+    .dict-wide    { grid-column: 1 / -1; }
+    .dict-actions { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .dict-status  { display: inline-block; padding: 1px 8px; border-radius: 2px; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+    .dict-status.published { background: var(--black); color: var(--white); }
+    .dict-status.draft     { background: var(--gray-100); color: var(--gray-600); }
+    .dict-meaning { color: var(--gray-600); max-width: 360px; }
+    .dict-examples { list-style: none; display: grid; gap: 8px; margin-bottom: 14px; font-size: 0.85rem; }
+    .dict-examples li { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--gray-100); padding-bottom: 8px; }
+    .dict-examples .ex-meta { font-size: 0.72rem; color: var(--gray-400); }
+
     /* ── モバイル調整 ─────────────────────────────────── */
     @media (max-width: 600px) {
       .bar-item { grid-template-columns: 100px 1fr 40px; }
@@ -320,6 +345,75 @@
 
     </div><!-- /#dashboard -->
 
+    <!-- 伊予弁の辞書（ADR 0004）。ログイン後、集計とは別に読み込む -->
+    <div id="dictionary" style="display:none">
+      <div class="section-title">伊予弁の辞書</div>
+      <div class="card">
+        <div class="dict-toolbar">
+          <input id="dict-filter" class="dict-input" type="search" placeholder="語・意味で絞り込み" oninput="renderDictionary()">
+          <span class="dict-count" id="dict-count"></span>
+          <button class="dict-btn" onclick="openEditor(null)">語を追加</button>
+        </div>
+        <p class="dict-help">資料で意味を裏付けた語だけを載せます。出典の URL は 2 つ以上必要です。公開した語は、研修クイズの出題と調べるモードの「資料より」に使われます（反映まで最大 5 分）。</p>
+        <div id="dict-error" class="dict-error" style="display:none"></div>
+        <div class="user-table-wrap">
+          <table>
+            <thead><tr><th>状態</th><th>語</th><th>意味</th><th>出典</th><th>放送の用例</th><th></th></tr></thead>
+            <tbody id="dict-tbody"><tr><td colspan="6" style="color:var(--gray-400);padding:16px 0">読み込み中...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 語の追加・編集 -->
+      <div class="card" id="dict-editor" style="display:none">
+        <div class="section-title" id="editor-title" style="margin-top:0">語を追加</div>
+        <div class="dict-form">
+          <label class="dict-field">id（半角英小文字・数字・ハイフン。後から変えない）
+            <input id="ed-id" class="dict-input" placeholder="例：yomoda"></label>
+          <label class="dict-field">語<input id="ed-word" class="dict-input" placeholder="例：よもだ"></label>
+          <label class="dict-field dict-wide">意味（資料の記述に沿って）<input id="ed-meaning" class="dict-input"></label>
+          <label class="dict-field">地域（資料にあれば）<input id="ed-region" class="dict-input" placeholder="例：南予"></label>
+          <label class="dict-field">今の使われ方
+            <select id="ed-usage" class="dict-input">
+              <option value="unknown">資料に記述なし</option>
+              <option value="daily">今も日常で使う</option>
+              <option value="elder">主に年配の人が使う</option>
+              <option value="old">昔の言葉</option>
+            </select></label>
+          <label class="dict-field dict-wide">補足（別形は「〜」とも、と書くと調べるモードで一致します）<input id="ed-note" class="dict-input"></label>
+          <label class="dict-field dict-wide">出典の URL（1 行に 1 つ、2 つ以上）<textarea id="ed-sources" class="dict-input" rows="3"></textarea></label>
+          <label class="dict-field dict-wide">資料に載っている例文（1 行に「方言 ＝ 標準語 ＝ 出典 URL」。無ければ空）<textarea id="ed-examples" class="dict-input" rows="3"></textarea></label>
+          <label class="dict-field">公開状態
+            <select id="ed-status" class="dict-input">
+              <option value="draft">下書き（出題・表示に使わない）</option>
+              <option value="published">公開</option>
+            </select></label>
+        </div>
+        <ul id="ed-errors" class="dict-error-list"></ul>
+        <div class="dict-actions">
+          <button class="dict-btn" id="ed-save" onclick="saveEntry()">保存</button>
+          <button class="dict-btn dict-btn-sub" onclick="closeEditor()">閉じる</button>
+          <span class="dict-count" id="ed-status-msg"></span>
+        </div>
+
+        <!-- 放送の用例（保存済みの語だけ） -->
+        <div id="ex-area" style="display:none">
+          <div class="section-title">放送の用例</div>
+          <ul class="dict-examples" id="ex-list"></ul>
+          <div class="dict-form">
+            <label class="dict-field">番組名<input id="ex-program" class="dict-input"></label>
+            <label class="dict-field">放送日<input id="ex-aired" class="dict-input" type="date"></label>
+            <label class="dict-field dict-wide">発言（文字起こし）<input id="ex-transcript" class="dict-input"></label>
+            <label class="dict-field dict-wide">標準語訳<input id="ex-standard" class="dict-input"></label>
+            <label class="dict-field">切り抜きの URL<input id="ex-clip" class="dict-input" placeholder="https://..."></label>
+            <label class="dict-field">開始秒<input id="ex-sec" class="dict-input" type="number" min="0" step="1"></label>
+          </div>
+          <ul id="ex-errors" class="dict-error-list"></ul>
+          <div class="dict-actions"><button class="dict-btn" onclick="addExample()">用例を追加</button></div>
+        </div>
+      </div>
+    </div><!-- /#dictionary -->
+
   </div><!-- /.container -->
 
   <!-- Supabase JS SDK -->
@@ -355,6 +449,10 @@
 
         // ヘッダーにメールアドレスを表示する
         document.getElementById('admin-email').textContent = session.user.email;
+
+        // 辞書は集計と独立に読み込む（集計が失敗しても辞書は編集できるように）
+        adminToken = session.access_token;
+        loadDictionary();
 
         // ダッシュボードデータを取得する
         await loadDashboard(session.access_token);
@@ -483,6 +581,224 @@
           '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
           '<span class="bar-count">' + cnt + '</span>';
         el.appendChild(li);
+      });
+    }
+
+    // ════════════════════════════════════════════════════
+    //  伊予弁の辞書（/api/dictionary）
+    // ════════════════════════════════════════════════════
+
+    let adminToken  = null;   // ログインのトークン（辞書 API に付ける）
+    let dictEntries = [];     // 下書きを含む全語（用例つき）
+    let editingId   = null;   // 保存済みの語を編集中ならその id、新規なら null
+
+    async function dictFetch(method, body, query) {
+      const res = await fetch('/api/dictionary' + (query || ''), {
+        method: method,
+        headers: { 'Authorization': 'Bearer ' + adminToken, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(function() { return {}; });
+      return { res: res, data: data };
+    }
+
+    async function loadDictionary() {
+      const errEl = document.getElementById('dict-error');
+      try {
+        const r = await dictFetch('GET');
+        if (r.res.status === 401 || r.res.status === 403) return;   // 画面上部の案内（ログイン・権限）に任せる
+        document.getElementById('dictionary').style.display = 'block';
+        if (!r.res.ok) {
+          errEl.textContent = r.data.error || '辞書の読み込みに失敗しました。';
+          errEl.style.display = 'block';
+          document.getElementById('dict-tbody').innerHTML = '';
+          return;
+        }
+        errEl.style.display = 'none';
+        dictEntries = r.data.entries || [];
+        renderDictionary();
+        if (editingId) renderExamples(findDictEntry(editingId));
+      } catch (err) {
+        document.getElementById('dictionary').style.display = 'block';
+        errEl.textContent = '通信エラー：' + err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    function findDictEntry(id) {
+      return dictEntries.find(function(e) { return e.id === id; }) || null;
+    }
+
+    function renderDictionary() {
+      const q = document.getElementById('dict-filter').value.trim();
+      const published = dictEntries.filter(function(e) { return e.status === 'published'; }).length;
+      document.getElementById('dict-count').textContent =
+        '公開 ' + published + ' 語 / 下書き ' + (dictEntries.length - published) + ' 語';
+
+      const rows = dictEntries.filter(function(e) { return !q || e.word.indexOf(q) !== -1 || e.meaning.indexOf(q) !== -1; });
+      const tbody = document.getElementById('dict-tbody');
+      tbody.innerHTML = '';
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--gray-400);padding:16px 0">該当する語はありません</td></tr>';
+        return;
+      }
+      rows.forEach(function(e) {
+        const tr = document.createElement('tr');
+        const cell = function(text, cls) {
+          const td = document.createElement('td');
+          if (cls) td.className = cls;
+          td.textContent = text;
+          tr.appendChild(td);
+          return td;
+        };
+        const status = cell('');
+        const pill = document.createElement('span');
+        pill.className = 'dict-status ' + e.status;
+        pill.textContent = e.status === 'published' ? '公開' : '下書き';
+        status.appendChild(pill);
+        cell(e.word);
+        cell(e.meaning, 'dict-meaning');
+        cell(String(e.sources.length));
+        cell(String((e.broadcastExamples || []).length));
+        const act = cell('');
+        const btn = document.createElement('button');
+        btn.className = 'dict-btn dict-btn-sub dict-btn-small';
+        btn.textContent = '編集';
+        btn.addEventListener('click', function() { openEditor(e); });
+        act.appendChild(btn);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openEditor(entry) {
+      editingId = entry ? entry.id : null;
+      document.getElementById('editor-title').textContent = entry ? '「' + entry.word + '」を編集' : '語を追加';
+      const set = function(id, v) { document.getElementById(id).value = v; };
+      set('ed-id', entry ? entry.id : '');
+      document.getElementById('ed-id').disabled = !!entry;          // id は学習記録が参照するので変えさせない
+      set('ed-word', entry ? entry.word : '');
+      set('ed-meaning', entry ? entry.meaning : '');
+      set('ed-region', entry ? entry.region : '');
+      set('ed-usage', entry ? entry.usage : 'unknown');
+      set('ed-note', entry ? entry.note : '');
+      set('ed-sources', entry ? entry.sources.join('\n') : '');
+      set('ed-examples', entry ? entry.examples.map(function(x) { return [x.dialect, x.standard, x.source].join(' ＝ '); }).join('\n') : '');
+      set('ed-status', entry ? entry.status : 'draft');
+      showList('ed-errors', []);
+      document.getElementById('ed-status-msg').textContent = '';
+      document.getElementById('ex-area').style.display = entry ? 'block' : 'none';
+      renderExamples(entry);
+      const editor = document.getElementById('dict-editor');
+      editor.style.display = 'block';
+      editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function closeEditor() {
+      editingId = null;
+      document.getElementById('dict-editor').style.display = 'none';
+    }
+
+    // フォームを語のデータに直す。例文の行の形が崩れていれば、ここで知らせる
+    function readEditor() {
+      const val = function(id) { return document.getElementById(id).value; };
+      const lines = function(id) { return val(id).split(/\r?\n/).map(function(s) { return s.trim(); }).filter(Boolean); };
+      const problems = [];
+      const examples = lines('ed-examples').map(function(line, i) {
+        // 区切りは全角の「＝」か、前後に空白のある「 = 」だけ（URL の中の = で切らない）
+        const parts = line.split(/\s*＝\s*|\s+=\s+/);
+        if (parts.length !== 3) problems.push('例文 ' + (i + 1) + ' 行目：「方言 ＝ 標準語 ＝ 出典 URL」の 3 つに分けてください');
+        return { dialect: parts[0] || '', standard: parts[1] || '', source: parts[2] || '' };
+      });
+      return {
+        problems: problems,
+        entry: {
+          id: val('ed-id').trim(), word: val('ed-word'), meaning: val('ed-meaning'), region: val('ed-region'),
+          usage: val('ed-usage'), note: val('ed-note'), sources: lines('ed-sources'), examples: examples,
+        },
+        status: val('ed-status'),
+      };
+    }
+
+    async function saveEntry() {
+      const form = readEditor();
+      if (form.problems.length) { showList('ed-errors', form.problems); return; }
+      const btn = document.getElementById('ed-save');
+      btn.disabled = true;
+      try {
+        const r = await dictFetch('POST', { type: 'entry', entry: form.entry, status: form.status });
+        if (!r.res.ok) {
+          showList('ed-errors', r.data.details || [r.data.error || '保存に失敗しました']);
+          return;
+        }
+        showList('ed-errors', []);
+        editingId = form.entry.id;
+        document.getElementById('editor-title').textContent = '「' + form.entry.word.trim() + '」を編集';
+        document.getElementById('ed-id').disabled = true;
+        document.getElementById('ex-area').style.display = 'block';
+        document.getElementById('ed-status-msg').textContent =
+          form.status === 'published' ? '保存して公開しました' : '下書きとして保存しました';
+        await loadDictionary();
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderExamples(entry) {
+      const list = document.getElementById('ex-list');
+      list.innerHTML = '';
+      const examples = (entry && entry.broadcastExamples) || [];
+      if (examples.length === 0) {
+        list.innerHTML = '<li style="color:var(--gray-400)">まだ用例はありません</li>';
+        return;
+      }
+      examples.forEach(function(x) {
+        const li = document.createElement('li');
+        const body = document.createElement('div');
+        const meta = document.createElement('div');
+        meta.className = 'ex-meta';
+        meta.textContent = [x.airedOn, x.program, x.clipUrl ? '切り抜きあり' : ''].filter(Boolean).join(' ・ ');
+        const text = document.createElement('div');
+        text.textContent = '「' + x.transcript + '」' + (x.standard ? ' ＝ ' + x.standard : '');
+        body.appendChild(meta);
+        body.appendChild(text);
+        const del = document.createElement('button');
+        del.className = 'dict-btn dict-btn-sub dict-btn-small';
+        del.textContent = '削除';
+        del.addEventListener('click', function() { deleteExample(x.id); });
+        li.appendChild(body);
+        li.appendChild(del);
+        list.appendChild(li);
+      });
+    }
+
+    async function addExample() {
+      if (!editingId) return;
+      const val = function(id) { return document.getElementById(id).value; };
+      const example = {
+        entryId: editingId, program: val('ex-program'), airedOn: val('ex-aired'), transcript: val('ex-transcript'),
+        standard: val('ex-standard'), clipUrl: val('ex-clip').trim(), clipStartSec: val('ex-sec'),
+      };
+      const r = await dictFetch('POST', { type: 'example', example: example });
+      if (!r.res.ok) { showList('ex-errors', r.data.details || [r.data.error || '保存に失敗しました']); return; }
+      showList('ex-errors', []);
+      ['ex-program', 'ex-aired', 'ex-transcript', 'ex-standard', 'ex-clip', 'ex-sec'].forEach(function(id) { document.getElementById(id).value = ''; });
+      await loadDictionary();
+    }
+
+    async function deleteExample(id) {
+      if (!window.confirm('この用例を削除しますか？')) return;
+      const r = await dictFetch('DELETE', null, '?exampleId=' + encodeURIComponent(id));
+      if (!r.res.ok) { showList('ex-errors', [r.data.error || '削除に失敗しました']); return; }
+      await loadDictionary();
+    }
+
+    function showList(id, items) {
+      const ul = document.getElementById(id);
+      ul.innerHTML = '';
+      items.forEach(function(t) {
+        const li = document.createElement('li');
+        li.textContent = t;
+        ul.appendChild(li);
       });
     }
 

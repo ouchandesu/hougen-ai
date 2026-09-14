@@ -3,6 +3,7 @@
   "scripts": {
     "adr:index": "node scripts/adr-index.js",
     "adr:new": "node scripts/adr-new.js",
+    "dict:seed-sql": "node scripts/dictionary-seed-sql.js",
     "link": "node scripts/link-agents.js",
     "test": "node --test \"scripts/checks/*.test.js\""
   },
